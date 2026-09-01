@@ -4,3 +4,6 @@
 
 ## Documentation
 https://belgiumcampusacza-my.sharepoint.com/:f:/g/personal/601609_student_belgiumcampus_ac_za/IgCLEkD1yq6URJN_AeA2ypQ4AQFPC6EZgSYZdrtlkCiyUEU?e=XZAf1L
+
+## Clickup
+https://app.clickup.com/90152697495/v/s/901511925121
