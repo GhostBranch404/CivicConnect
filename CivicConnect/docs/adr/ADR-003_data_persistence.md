@@ -1,17 +1,57 @@
-ADR-003 - CivicConnect Persistence and Data-Integrity Strategy
+# ADR-003: CivicConnect Persistence and Data-Integrity Strategy
 
-Status: Proposed for M2 baseline
+## Status
+Proposed for M2 baseline
 
-Context
-CivicConnect must store service requests, requester information, controlled categories, assignments, request status, resolution information and an auditable history of important request changes. The data is relational and several important operations affect multiple related records. Incomplete writes could result in a service request being updated without the related audit or assignment information.
+## Context
+CivicConnect stores service requests, requester details, controlled categories and statuses, assignments, request history and developer/application logs. Several business operations require more than one database write. For example, creating a request should also create an initial history entry and developer log. Updating status should update the request and record the change. If only part of such an operation succeeds, the database becomes inconsistent.
 
-Decision
-CivicConnect will use MySQL as the relational persistence store, continuing the technology direction established during Milestone 1. Business validation and transactional coordination will primarily occur in the application/service layer, while MySQL will enforce structural integrity through primary keys, foreign keys, required fields and unique constraints.
-Entity Framework Core will be used as the intended persistence abstraction, with schema changes managed through version-controlled migrations rather than unmanaged manual changes.
-Multi-step operations that must remain consistent will execute within a transaction. If a required operation fails, the transaction will roll back.
-An optimistic concurrency mechanism will also be used on mutable service-request data to detect conflicting updates by multiple users.
+## Decision
+CivicConnect will use MySQL with Dapper and MySqlConnector.
 
-Main consequences
-The approach improves maintainability and testability because business rules remain in the application layer rather than being distributed across stored procedures. Database constraints still protect relational integrity if invalid references are attempted. Transactions prevent partially completed business operations.
-The approach adds additional implementation work because transaction boundaries, concurrency conflicts, migrations and entity mappings must be managed deliberately.
-This lines up with your A2 recommendation that the service/application layer handle transactional boundaries while MySQL retains structural safeguards.
+Business rules remain in the service layer, while repository methods execute parameterised SQL and control database transactions where an operation spans multiple statements.
+
+MySQL will enforce structural integrity through:
+
+- primary keys;
+- foreign keys;
+- NOT NULL constraints;
+- UNIQUE constraints;
+- controlled reference tables for categories and request statuses.
+
+Multi-step writes will use a single MySQL transaction. If any required statement fails, the transaction is rolled back.
+
+Optimistic concurrency will be implemented on `ServiceRequests` using an integer `Version` column. Updates will include the expected version in the WHERE clause and increment the version only when the update succeeds.
+
+Important request lifecycle events will be written to `RequestHistory`. Developer/application activity required for traceability will be written to `DeveloperLogs`.
+
+## Example transactional operation
+
+Creating a request:
+
+1. Insert `ServiceRequests`.
+2. Retrieve the generated request ID.
+3. Insert the initial `RequestHistory` entry.
+4. Insert the related `DeveloperLogs` entry.
+5. Commit if every statement succeeds; otherwise roll back.
+
+## Consequences
+### Positive
+- Prevents partial request/history/log updates.
+- Keeps workflow rules outside SQL stored procedures.
+- Preserves explicit SQL control while maintaining layered separation.
+- Makes stale concurrent updates detectable.
+- Supports lecturer-requested database logging and request auditability.
+
+### Negative
+- Transaction and concurrency code must be implemented deliberately.
+- Dapper requires manual SQL and mapping maintenance.
+- Version-controlled SQL migrations must be maintained by the team.
+
+## Evidence
+- `database/migrations/001_initial_schema.sql`
+- `Data/RequestRepository.cs`
+- `Models/RequestHistory.cs`
+- `Models/DeveloperLog.cs`
+- `docs/database-design.md`
+- `docs/diagrams/CivicConnect_ERD.md`
