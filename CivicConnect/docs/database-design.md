@@ -1,678 +1,495 @@
 # CivicConnect Database Design
 
-**Document type:** Database Persistence Design  
+**Document type:** Database / Persistence Design  
 **Project:** CivicConnect – Community Service Request Management Platform  
+**Milestone:** Milestone 2  
+**Persistence baseline:** MySQL + Dapper + MySqlConnector  
+**Owner:** Jaco – Database/Persistence Lead  
+
 ---
 
 ## 1. Purpose
 
-This document defines the initial database and persistence design for CivicConnect. It translates the approved CivicConnect requirements and the persistence decisions researched in Assignment 2 into a project-specific data model that can be implemented and verified during Milestone 2.
+This document defines the M2 database and persistence baseline for CivicConnect. It converts the project requirements and Assignment 2 persistence research into a concrete relational design that can be implemented, reviewed and verified in the repository.
 
-The design is intended to support the main CivicConnect workflow:
+The database must support the core request lifecycle:
 
 1. a registered requester submits a service request;
-2. the request receives a unique ticket number and initial status;
+2. the system stores a unique Ticket Number and initial status;
 3. staff can view and assign requests;
 4. authorised staff can update request status and add resolution information;
-5. important request changes are recorded in a traceable history;
-6. management can later query request information for oversight and reporting.
+5. important request changes are recorded in `RequestHistory`;
+6. application/developer activity required for engineering traceability is recorded in `DeveloperLogs`;
+7. management can query request, status and assignment data for oversight.
 
-The database design is not intended to contain business logic that belongs in the application layer. CivicConnect will use the application/service layer to coordinate business validation, transactions and workflow rules, while MySQL provides structural safeguards such as primary keys, foreign keys, required fields and uniqueness constraints.
-
----
-
-## 2. Scope
-
-### 2.1 In scope for the M2 database baseline
-
-This document covers:
-
-- the main CivicConnect data entities;
-- entity relationships;
-- primary and foreign keys;
-- data ownership;
-- lifecycle implications;
-- structural integrity rules;
-- transaction boundaries;
-- validation responsibilities;
-- audit/history persistence;
-- optimistic concurrency;
-- indexing considerations;
-- migrations and schema control;
-- database configuration and secret handling;
-- initial availability, backup/recovery and single-point-of-failure considerations;
-- database verification;
-- requirement traceability;
-- database-related risks and assumptions.
-
-### 2.2 Not yet treated as final
-
-The following are not considered fully final at this stage:
-
-- production hosting configuration;
-- final backup retention periods;
-- final database sizing and performance tuning;
-- final dashboard/reporting query optimisation;
-- final identity-provider implementation;
-- final deletion/retention policy;
-- final disaster-recovery targets;
-- final production monitoring.
-
-These items should be revisited as CivicConnect progresses beyond the M2 baseline.
+The design deliberately separates business rules from structural database protection. Service-layer code applies business validation and workflow decisions. The repository layer performs parameterised Dapper queries and coordinates transactions. MySQL enforces keys, required values, uniqueness and relational consistency.
 
 ---
 
-## 3. Source Requirements Driving the Data Model
+## 2. Technology and Data-Access Decision
 
-The database model is based on the current CivicConnect requirements.
+The current M2 persistence baseline is:
 
-| Requirement | Database implication |
+- **Database:** MySQL
+- **Backend:** C# / ASP.NET Core
+- **Data access:** Dapper
+- **Driver:** MySqlConnector
+- **Schema evolution:** version-controlled SQL migration scripts
+- **Architecture:** Controller → Service → Repository → MySQL
+
+Entity Framework Core is **not** part of the current baseline. The team selected Dapper because Request Management is already implemented using repository-based explicit SQL and changing persistence technology at this stage would add unnecessary rework.
+
+Dapper does not remove the need for architecture boundaries. Controllers must not contain database queries. SQL belongs in the repository/data-access layer, while workflow validation remains in the service layer.
+
+---
+
+## 3. Requirements Driving the Database
+
+| Requirement | Persistence impact |
 |---|---|
-| **FR-001 – Service Request Submission** | A registered requester must be able to submit a request containing a title, description, location and category. The system must generate and store a unique Ticket ID. |
-| **FR-002 – Request Tracking & History** | Requesters must be able to view their previous requests and the current status of each request. |
-| **FR-003 – Request Assignment** | Staff must be able to assign incoming requests to themselves or another suitable staff member. Assignment and acknowledgement changes must be recorded. |
-| **FR-004 – Status Transition and Resolution** | Authorised staff must be able to update request progress and record resolution notes. |
-| **FR-005 – Dashboard Oversight** | Management must be able to obtain request-volume, status and staff-related information for oversight. |
-| **RBAC requirement** | The system distinguishes Requester, Staff and Management responsibilities. |
-| **Auditability requirement** | Important actions must be traceable to a user, request and timestamp. |
-| **Data-integrity requirement** | Request, assignment, history and status information must remain consistent even where an operation requires multiple writes. |
+| **FR-001 – Service Request Submission** | Store requester, title, description, location, category, status and unique ticket number. |
+| **FR-002 – Request Tracking & History** | Store current request state and an ordered lifecycle history. |
+| **FR-003 – Request Assignment** | Store current and previous staff assignments with timestamps. |
+| **FR-004 – Status Transition and Resolution** | Store status changes, resolution notes and related audit/history records. |
+| **FR-005 – Dashboard Oversight** | Support efficient queries by status, category, date and assignment. |
+| **RBAC** | Persist a logical user/role identity or integrate with the final authentication identity model. |
+| **Auditability** | Record actor, request, action/state and timestamp for important request lifecycle events. |
+| **Data integrity** | Prevent invalid references and partial multi-table operations. |
+| **Developer/application logging** | Persist selected engineering/application trace events in `DeveloperLogs`. |
 
 ---
 
-## 4. Persistence Approach
+## 4. ERD
 
-### 4.1 Selected direction
+The editable M2 ERD is stored in:
 
-CivicConnect will use a relational **MySQL** database.
+`docs/diagrams/CivicConnect_ERD.md`
 
-The application will access persistence through the selected C#/.NET data-access approach rather than placing raw SQL directly inside controllers. The current project direction is to use **Entity Framework Core** as the persistence abstraction, with version-controlled migrations used to evolve the database schema.
-
-### 4.2 Responsibility split
-
-CivicConnect uses a multi-tier validation and integrity strategy:
-
-**Presentation layer**
-- provides immediate formatting and required-field feedback;
-- prevents obviously incomplete forms where practical.
-
-**Application/service layer**
-- applies CivicConnect business rules;
-- controls valid workflow transitions;
-- performs authorisation checks;
-- coordinates multi-step operations;
-- begins/commits/rolls back transactions;
-- handles concurrency conflicts.
-
-**Database layer**
-- enforces primary keys;
-- enforces foreign keys;
-- enforces required values;
-- enforces uniqueness;
-- preserves relational consistency.
-
-This avoids moving application workflow logic into stored procedures while still ensuring that invalid relational data cannot be inserted freely.
+The previously exported PNG remains supporting visual evidence. The updated ERD includes the lecturer-requested `DeveloperLogs` entity.
 
 ---
 
-## 5. ERD in "docs" folder.
+## 5. Entity Summary
+
+| Entity | Purpose |
+|---|---|
+| `Users` | Logical CivicConnect users and role context. |
+| `Categories` | Controlled request categories. |
+| `RequestStatuses` | Controlled statuses: Pending, In Progress and Resolved. |
+| `ServiceRequests` | Current state of each CivicConnect ticket. |
+| `Assignments` | Staff responsibility and reassignment history. |
+| `RequestComments` | General notes and resolution information. |
+| `RequestHistory` | Business/audit history of important request lifecycle events. |
+| `DeveloperLogs` | Application/developer trace events required for engineering visibility and troubleshooting. |
 
 ---
 
-## 6. Entity Definitions and Data Dictionary
+## 6. Data Dictionary
 
 ### 6.1 Users
 
-**Purpose:** Stores the CivicConnect user identity required by service-request, assignment, comment and audit relationships.
+| Field | Type | Constraint | Purpose |
+|---|---|---|---|
+| `UserId` | INT | PK, AUTO_INCREMENT | Internal user identifier |
+| `FullName` | VARCHAR(150) | NOT NULL | User display name |
+| `Email` | VARCHAR(255) | NOT NULL, UNIQUE | User email |
+| `Role` | VARCHAR(50) | NOT NULL | Requester, Staff or Management context |
+| `IsActive` | BOOLEAN | NOT NULL, default TRUE | Soft lifecycle flag |
+| `CreatedAt` | DATETIME | NOT NULL | Creation timestamp |
 
-> Note: the final authentication mechanism may introduce framework-managed identity tables. The `Users` structure below represents the current logical CivicConnect user entity and may later map to or be replaced by the selected identity framework's tables.
-
-| Field | Proposed type | Null? | Key/constraint | Purpose |
-|---|---|---:|---|---|
-| `UserId` | INT | No | PK, auto increment | Internal user identifier |
-| `FullName` | VARCHAR(150) | No |  | Display/user name |
-| `Email` | VARCHAR(255) | No | UNIQUE | Login/contact identity |
-| `Role` | VARCHAR(50) | No | controlled by application | Requester, Staff or Management |
-| `IsActive` | BOOLEAN | No | default TRUE | Allows account deactivation without deleting history |
-| `CreatedAt` | DATETIME | No |  | Account creation timestamp |
-
-**Rules**
-- `Email` must be unique.
-- Historical rows should not be broken when a user is deactivated.
-- The application must control valid roles.
-- The final identity design must avoid storing passwords directly in this table unless the selected identity framework explicitly manages secure password hashes.
+The final authentication implementation may replace or map this logical entity to framework-managed identity tables. Password storage must not be invented independently in this table.
 
 ### 6.2 Categories
 
-**Purpose:** Provides a controlled classification for service requests.
+| Field | Type | Constraint | Purpose |
+|---|---|---|---|
+| `CategoryId` | INT | PK, AUTO_INCREMENT | Category identifier |
+| `CategoryName` | VARCHAR(100) | NOT NULL, UNIQUE | Controlled category name |
+| `IsActive` | BOOLEAN | NOT NULL | Allows retirement without destroying history |
 
-| Field | Proposed type | Null? | Key/constraint | Purpose |
-|---|---|---:|---|---|
-| `CategoryId` | INT | No | PK, auto increment | Category identifier |
-| `CategoryName` | VARCHAR(100) | No | UNIQUE | Human-readable category |
-| `IsActive` | BOOLEAN | No | default TRUE | Allows categories to be retired without deleting historical references |
-
-**Example initial values**
-- Maintenance
-- IT Support
-- Security
-- Facilities
-- Other
-
-These values are examples and should be confirmed by the team before being baselined.
+Initial development categories are Maintenance, IT Support, Security, Facilities and Other. These are seed values and can be changed through a controlled team decision.
 
 ### 6.3 RequestStatuses
 
-**Purpose:** Provides a controlled set of valid request-status values.
+| Field | Type | Constraint | Purpose |
+|---|---|---|---|
+| `StatusId` | INT | PK, AUTO_INCREMENT | Status identifier |
+| `StatusName` | VARCHAR(50) | NOT NULL, UNIQUE | Controlled status label |
 
-| Field | Proposed type | Null? | Key/constraint | Purpose |
-|---|---|---:|---|---|
-| `StatusId` | INT | No | PK, auto increment | Status identifier |
-| `StatusName` | VARCHAR(50) | No | UNIQUE | Status label |
+M2 seed values are:
 
-**Current requirement-supported values**
-- Pending
-- In Progress
-- Resolved
+1. Pending
+2. In Progress
+3. Resolved
 
-Additional values such as Assigned, Closed or Rejected should only be added if the team approves them as project-specific workflow decisions.
+Additional workflow states should only be introduced when the team deliberately baselines them.
 
 ### 6.4 ServiceRequests
 
-**Purpose:** Main persistent entity representing a CivicConnect service request/ticket.
+| Field | Type | Constraint | Purpose |
+|---|---|---|---|
+| `RequestId` | INT | PK, AUTO_INCREMENT | Internal request identifier |
+| `TicketNumber` | VARCHAR(30) | NOT NULL, UNIQUE | User-facing ticket reference |
+| `RequesterId` | INT | FK → Users | Request owner |
+| `CategoryId` | INT | FK → Categories | Request category |
+| `StatusId` | INT | FK → RequestStatuses | Current request status |
+| `Title` | VARCHAR(200) | NOT NULL | Short request title |
+| `Description` | TEXT | NOT NULL | Full issue description |
+| `Location` | VARCHAR(255) | NOT NULL | Request location |
+| `RequestDate` | DATETIME | NOT NULL | Submission timestamp |
+| `UpdatedAt` | DATETIME | NOT NULL | Last state-change timestamp |
+| `Version` | INT | NOT NULL, default 1 | Optimistic-concurrency token |
 
-| Field | Proposed type | Null? | Key/constraint | Purpose |
-|---|---|---:|---|---|
-| `ServiceRequestId` | INT | No | PK, auto increment | Internal relational identifier |
-| `TicketNumber` | VARCHAR(30) | No | UNIQUE | User-facing ticket reference |
-| `RequesterId` | INT | No | FK → `Users.UserId` | Request owner/requester |
-| `CategoryId` | INT | No | FK → `Categories.CategoryId` | Request classification |
-| `StatusId` | INT | No | FK → `RequestStatuses.StatusId` | Current request status |
-| `Title` | VARCHAR(200) | No |  | Short request title |
-| `Description` | TEXT | No |  | Full issue description |
-| `Location` | VARCHAR(255) | No |  | Location supplied for the request |
-| `CreatedAt` | DATETIME | No |  | Submission time |
-| `UpdatedAt` | DATETIME | No |  | Last modification time |
-| `Version` | INT | No | default 1 | Optimistic-concurrency token |
-
-**Rules**
-- A request cannot exist without a valid requester.
-- A request cannot exist without a valid category.
-- A request cannot exist without a valid status.
-- `TicketNumber` must be unique.
-- The application determines the initial status.
-- A resolved request must satisfy the approved resolution-note rule before the transaction is committed.
-- `Version` must change when protected mutable state changes.
+`ServiceRequests` stores the **current state** of the ticket. Historical state changes belong in `RequestHistory`.
 
 ### 6.5 Assignments
 
-**Purpose:** Records responsibility for service requests over time.
+| Field | Type | Constraint | Purpose |
+|---|---|---|---|
+| `AssignmentId` | INT | PK, AUTO_INCREMENT | Assignment identifier |
+| `RequestId` | INT | FK → ServiceRequests | Assigned request |
+| `StaffUserId` | INT | FK → Users | Responsible staff member |
+| `AssignedAt` | DATETIME | NOT NULL | Assignment timestamp |
+| `UnassignedAt` | DATETIME | NULL | End of responsibility |
+| `IsCurrent` | BOOLEAN | NOT NULL | Indicates active assignment |
 
-A separate assignment table is used instead of storing only a single staff ID directly on `ServiceRequests`. This preserves reassignment history and allows CivicConnect to determine who was responsible for the request at different points in its lifecycle.
-
-| Field | Proposed type | Null? | Key/constraint | Purpose |
-|---|---|---:|---|---|
-| `AssignmentId` | INT | No | PK, auto increment | Assignment record |
-| `ServiceRequestId` | INT | No | FK → `ServiceRequests.ServiceRequestId` | Assigned request |
-| `StaffUserId` | INT | No | FK → `Users.UserId` | Assigned staff member |
-| `AssignedAt` | DATETIME | No |  | Assignment timestamp |
-| `UnassignedAt` | DATETIME | Yes |  | Time responsibility ended |
-| `IsCurrent` | BOOLEAN | No | default TRUE | Identifies active assignment |
-
-**Rules**
-- The application must ensure that the selected assignee is authorised as staff.
-- A request should have no more than one current assignment unless the team explicitly changes the business rule.
-- Previous assignment records should be retained for traceability.
-- Reassignment should close the old assignment and create a new assignment inside a controlled operation.
+Assignments are kept in a separate table so reassignment does not destroy previous responsibility evidence.
 
 ### 6.6 RequestComments
 
-**Purpose:** Stores notes associated with a request, including resolution information.
+| Field | Type | Constraint | Purpose |
+|---|---|---|---|
+| `CommentId` | INT | PK, AUTO_INCREMENT | Comment identifier |
+| `RequestId` | INT | FK → ServiceRequests | Parent request |
+| `UserId` | INT | FK → Users | Comment author |
+| `CommentText` | TEXT | NOT NULL | Comment/resolution content |
+| `CommentType` | VARCHAR(30) | NOT NULL | General, Resolution, etc. |
+| `CreatedAt` | DATETIME | NOT NULL | Timestamp |
 
-| Field | Proposed type | Null? | Key/constraint | Purpose |
-|---|---|---:|---|---|
-| `CommentId` | INT | No | PK, auto increment | Comment identifier |
-| `ServiceRequestId` | INT | No | FK → `ServiceRequests.ServiceRequestId` | Parent request |
-| `UserId` | INT | No | FK → `Users.UserId` | Author |
-| `CommentText` | TEXT | No |  | Comment/resolution text |
-| `CommentType` | VARCHAR(30) | No | application-controlled | e.g. General, Resolution |
-| `CreatedAt` | DATETIME | No |  | Comment timestamp |
-
-**Rules**
-- Empty comments must not be persisted.
-- A resolution comment must be present where the FR-004 resolution acceptance criteria require it.
-- The application controls whether a user may create a particular comment type.
+A request changed to `Resolved` must provide resolution notes according to FR-004. The service layer validates this before persistence.
 
 ### 6.7 RequestHistory
 
-**Purpose:** Provides the persistent audit/history trail for important request lifecycle changes.
+| Field | Type | Constraint | Purpose |
+|---|---|---|---|
+| `HistoryId` | INT | PK, AUTO_INCREMENT | History identifier |
+| `RequestId` | INT | FK → ServiceRequests | Affected request |
+| `ChangedByUserId` | INT | FK → Users | User responsible for change |
+| `OldStatusId` | INT | nullable FK | Previous status |
+| `NewStatusId` | INT | nullable FK | New status |
+| `ActionType` | VARCHAR(50) | NOT NULL | RequestCreated, StatusChanged, etc. |
+| `Notes` | TEXT | NULL | Additional detail |
+| `ChangedAt` | DATETIME | NOT NULL | Event time |
 
-| Field | Proposed type | Null? | Key/constraint | Purpose |
-|---|---|---:|---|---|
-| `HistoryId` | INT | No | PK, auto increment | History record identifier |
-| `ServiceRequestId` | INT | No | FK → `ServiceRequests.ServiceRequestId` | Affected request |
-| `ChangedByUserId` | INT | No | FK → `Users.UserId` | Responsible user |
-| `OldStatusId` | INT | Yes | FK → `RequestStatuses.StatusId` | Previous status, if applicable |
-| `NewStatusId` | INT | Yes | FK → `RequestStatuses.StatusId` | New status, if applicable |
-| `ActionType` | VARCHAR(50) | No | application-controlled | Action performed |
-| `Notes` | TEXT | Yes |  | Additional change detail |
-| `ChangedAt` | DATETIME | No |  | Change timestamp |
+`RequestHistory` is business/audit evidence. It should be append-oriented and important lifecycle changes should write history within the same transaction as the request change.
 
-**Typical `ActionType` examples**
-- RequestCreated
-- RequestAssigned
-- RequestReassigned
-- StatusChanged
-- ResolutionAdded
+### 6.8 DeveloperLogs
 
-These values should be treated as a controlled application set rather than arbitrary user input.
+| Field | Type | Constraint | Purpose |
+|---|---|---|---|
+| `LogId` | BIGINT | PK, AUTO_INCREMENT | Log identifier |
+| `RequestId` | INT | nullable FK → ServiceRequests | Related request where applicable |
+| `Actor` | VARCHAR(150) | NOT NULL | Application/user/developer actor label |
+| `Action` | VARCHAR(100) | NOT NULL | CREATE, UPDATE_STATUS, ERROR, etc. |
+| `EntityType` | VARCHAR(100) | NOT NULL | Affected logical entity |
+| `EntityId` | VARCHAR(100) | NULL | Affected identifier |
+| `Severity` | VARCHAR(30) | NOT NULL | Information, Warning, Error |
+| `Details` | TEXT | NULL | Human-readable diagnostic detail |
+| `LoggedAt` | DATETIME | NOT NULL | Log timestamp |
 
-**Rules**
-- History entries must reference a valid request and responsible user.
-- History should be appended rather than casually edited.
-- Important lifecycle changes should write their history entry as part of the same logical transaction as the state change.
-- Request Management should communicate with the Audit/History responsibility through the agreed application boundary rather than scattering direct audit-table access through controllers.
+#### Developer logging purpose
+
+The lecturer requested developer logging in the database. This table provides persistent technical/application trace evidence for selected operations. It does **not** replace request audit history.
+
+Examples worth storing:
+
+- request successfully created;
+- status update completed;
+- assignment operation completed;
+- persistence error caught at an application boundary;
+- controlled administrative operation.
+
+The system should avoid logging passwords, tokens, connection strings or other secrets. It also should not log every trivial UI interaction.
 
 ---
 
-## 7. Relationships and Cardinality
+## 7. Relationships
 
-| Parent | Child | Relationship | Reason |
-|---|---|---|---|
-| Users | ServiceRequests | 1-to-many | One requester may submit many requests |
-| Categories | ServiceRequests | 1-to-many | One category may classify many requests |
-| RequestStatuses | ServiceRequests | 1-to-many | Many requests may share the same current status |
-| ServiceRequests | Assignments | 1-to-many | A request may be reassigned over time |
-| Users | Assignments | 1-to-many | A staff member may receive many assignments |
-| ServiceRequests | RequestComments | 1-to-many | A request may have multiple comments/notes |
-| Users | RequestComments | 1-to-many | A user may author multiple comments |
-| ServiceRequests | RequestHistory | 1-to-many | A request has multiple lifecycle/audit events |
-| Users | RequestHistory | 1-to-many | A user may perform multiple auditable actions |
-| RequestStatuses | RequestHistory | 1-to-many | Status transition history refers to controlled statuses |
+| Parent | Child | Cardinality |
+|---|---|---|
+| Users | ServiceRequests | 1:M |
+| Categories | ServiceRequests | 1:M |
+| RequestStatuses | ServiceRequests | 1:M |
+| ServiceRequests | Assignments | 1:M |
+| Users | Assignments | 1:M |
+| ServiceRequests | RequestComments | 1:M |
+| Users | RequestComments | 1:M |
+| ServiceRequests | RequestHistory | 1:M |
+| Users | RequestHistory | 1:M |
+| ServiceRequests | DeveloperLogs | 1:M / optional relationship |
 
 ---
 
 ## 8. Data Ownership
 
-Logical ownership is assigned by responsibility rather than by physical database isolation.
-
 | Data | Logical owner | Responsibility |
 |---|---|---|
-| Users / roles | Authentication / Authorisation | User identity and role context |
-| Categories | Request Management | Controlled request classification |
-| ServiceRequests | Request Management | Main request lifecycle |
-| Assignments | Request Management | Request responsibility/reassignment |
-| RequestComments | Request Management | Notes and resolution information |
-| RequestHistory | Audit / History | Traceable record of significant lifecycle changes |
-| RequestStatuses | Request Management / shared reference data | Controlled status vocabulary |
+| Users/roles | Authentication/Authorisation | Identity and role context |
+| Categories | Request Management | Classification |
+| ServiceRequests | Request Management | Core ticket lifecycle |
+| Assignments | Request Management | Staff responsibility |
+| RequestComments | Request Management | Notes and resolution |
+| RequestHistory | Audit/History | Business lifecycle trace |
+| DeveloperLogs | Application/Engineering logging | Technical trace/troubleshooting |
+| RequestStatuses | Shared reference data | Controlled status vocabulary |
 
-All data currently resides in the same relational store. Logical ownership is used to prevent unrelated components from directly manipulating another component's persistence responsibilities without a defined application boundary.
+All tables currently live in the same MySQL database. Logical ownership prevents unrelated modules from bypassing their service/repository boundaries.
 
 ---
 
-## 9. Integrity Strategy
+## 9. Integrity Controls
 
-CivicConnect will use both application-level and database-level integrity controls.
+### Primary keys
+Every persistent table has a stable primary key.
 
-### 9.1 Primary keys
+### Foreign keys
+Foreign keys prevent orphaned records, for example:
 
-Every persistent entity has a stable primary key.
-
-### 9.2 Foreign keys
-
-Foreign keys prevent orphaned relational data.
-
-Examples:
 - `ServiceRequests.RequesterId → Users.UserId`
 - `ServiceRequests.CategoryId → Categories.CategoryId`
 - `ServiceRequests.StatusId → RequestStatuses.StatusId`
-- `Assignments.ServiceRequestId → ServiceRequests.ServiceRequestId`
+- `RequestHistory.RequestId → ServiceRequests.RequestId`
 - `Assignments.StaffUserId → Users.UserId`
-- `RequestHistory.ServiceRequestId → ServiceRequests.ServiceRequestId`
 
-### 9.3 Required fields
+### Required values
+`NOT NULL` is used where absence would make the record invalid, including title, description, location, status and major timestamps.
 
-`NOT NULL` should be used where absence would invalidate the record, including request title, description, location, requester, category, status, assignment staff member, history actor and required timestamps.
+### Uniqueness
+Unique constraints protect:
 
-### 9.4 Unique constraints
+- user email;
+- ticket number;
+- category name;
+- request-status name.
 
-At minimum:
-- `Users.Email`;
-- `Categories.CategoryName`;
-- `RequestStatuses.StatusName`;
-- `ServiceRequests.TicketNumber`.
-
-### 9.5 Delete behaviour
-
-The default M2 design should prefer preserving traceability over destructive cascades.
-
-The implementation should therefore be cautious with cascade deletes on users, service requests, assignments, request history and comments. Where possible, lifecycle flags such as `IsActive` should be used for reference/user records that need to be retired without destroying historical evidence.
-
-Final delete/retention behaviour remains an item for team approval.
+### Parameterised SQL
+All values originating from application input must be passed to Dapper as parameters. SQL strings must not be constructed by concatenating raw user input.
 
 ---
 
-## 10. Transaction Management
+## 10. Transaction Strategy
 
-Some CivicConnect actions require multiple related writes and must behave as one logical operation.
+Multi-step operations are treated as a single logical transaction.
 
-### 10.1 Example – service-request submission
+### Create request
 
-A submission may require:
+1. insert `ServiceRequests`;
+2. retrieve `LAST_INSERT_ID()`;
+3. insert initial `RequestHistory`;
+4. insert `DeveloperLogs` trace;
+5. commit.
 
-1. create the `ServiceRequest`;
-2. generate/store the Ticket Number;
-3. create the initial `RequestHistory` entry;
-4. optionally create routing/assignment information when that workflow is implemented.
+If any required statement fails, roll back the entire operation.
 
-If any required write fails, the operation should roll back.
+### Change request status
 
-### 10.2 Example – resolve request
+1. lock/read the current request state;
+2. verify the expected `Version`;
+3. resolve the target controlled status;
+4. update request status and increment `Version`;
+5. insert `RequestHistory`;
+6. insert `DeveloperLogs` trace;
+7. commit.
 
-A resolve operation may require:
-
-1. validate that the acting user is authorised;
-2. validate that resolution notes are supplied;
-3. update `ServiceRequests.StatusId`;
-4. update `ServiceRequests.UpdatedAt`;
-5. increment/update the concurrency value;
-6. insert the resolution `RequestComment`;
-7. insert a `RequestHistory` entry;
-8. commit.
-
-```text
-BEGIN TRANSACTION
-    Update ServiceRequest
-    Insert Resolution Comment
-    Insert RequestHistory
-IF all succeed
-    COMMIT
-ELSE
-    ROLLBACK
-```
-
-### 10.3 Responsibility
-
-Transaction boundaries are controlled in the application/service layer rather than hidden inside UI controllers or spread across stored procedures.
+This prevents the current request state from changing without its corresponding trace records.
 
 ---
 
-## 11. Concurrency Strategy
+## 11. Optimistic Concurrency
 
-CivicConnect must account for two staff members attempting to update the same request using stale information.
+`ServiceRequests.Version` is used to detect stale updates.
 
-### 11.1 Problem example
+Example:
 
-1. Staff A opens Ticket 152 at version 3.
-2. Staff B opens Ticket 152 at version 3.
-3. Staff A updates the request successfully; it becomes version 4.
-4. Staff B attempts to save an update based on version 3.
+1. Staff A reads version 3.
+2. Staff B reads version 3.
+3. Staff A updates successfully; version becomes 4.
+4. Staff B tries to update using expected version 3.
+5. CivicConnect rejects the stale update instead of silently overwriting Staff A's work.
 
-Without a concurrency control, Staff B could overwrite Staff A's more recent change.
-
-### 11.2 Proposed approach
-
-Use optimistic concurrency on mutable request data.
-
-The current logical model includes:
-
-`ServiceRequests.Version`
-
-The persistence implementation should compare the version expected by the application with the current stored version before accepting the update.
-
-If the values conflict:
-
-- do not silently overwrite the newer data;
-- roll back the current operation where required;
-- return a controlled conflict to the application;
-- require the user/application to reload the current request state.
-
-The exact EF Core provider-specific implementation must be confirmed against the selected MySQL provider.
+The update SQL includes both `RequestId` and the expected `Version` and increments the version on success.
 
 ---
 
-## 12. Audit and History Design
+## 12. Indexing
 
-Auditability is a major CivicConnect requirement because status and assignment changes must remain traceable.
-
-The `RequestHistory` table is therefore not merely a copy of the current `ServiceRequests.StatusId`. It records **how the request reached its current state**.
-
-| ChangedAt | Action | Old status | New status | Actor |
-|---|---|---|---|---|
-| 09:00 | RequestCreated | — | Pending | Requester |
-| 10:15 | RequestAssigned | Pending | Pending | Staff |
-| 10:20 | StatusChanged | Pending | In Progress | Staff |
-| 15:40 | ResolutionAdded | In Progress | Resolved | Staff |
-
-The `ServiceRequests` table provides the current state efficiently, while `RequestHistory` preserves the traceable lifecycle.
-
----
-
-## 13. Indexing Strategy
-
-The initial schema should keep indexing proportionate to M2 rather than attempting premature optimisation.
-
-### 13.1 Indexes provided by keys
-
-Primary and unique keys cover entity IDs, ticket number, user email, category name and status name.
-
-### 13.2 Candidate additional indexes
-
-The following should be considered as actual query patterns become visible:
+Initial indexes are deliberately limited to known access paths:
 
 - `ServiceRequests.RequesterId`
-- `ServiceRequests.StatusId`
 - `ServiceRequests.CategoryId`
-- `ServiceRequests.CreatedAt`
-- `Assignments.ServiceRequestId`
+- `ServiceRequests.StatusId`
+- `ServiceRequests.RequestDate`
+- `Assignments.RequestId`
 - `Assignments.StaffUserId`
-- `Assignments.IsCurrent`
-- `RequestHistory.ServiceRequestId`
-- `RequestHistory.ChangedAt`
+- `(Assignments.RequestId, IsCurrent)`
+- `RequestHistory.RequestId`
+- `(RequestHistory.RequestId, ChangedAt)`
+- `DeveloperLogs.RequestId`
+- `DeveloperLogs.LoggedAt`
+- `DeveloperLogs.Severity`
 
-A composite index should only be added where an observed/required query justifies it. A later candidate could be `(StatusId, CreatedAt)` for dashboard queries.
-
----
-
-## 14. Expected Access Patterns
-
-### Requester
-- submit a request;
-- retrieve a request by ticket number;
-- list own requests;
-- view current status;
-- view request history.
-
-### Staff
-- list/filter pending or open requests;
-- assign a request;
-- retrieve assigned requests;
-- update request status;
-- record comments/resolution notes;
-- view request history.
-
-### Management
-- query counts by status;
-- query request volumes;
-- query outstanding/overdue work where the overdue rule is later defined;
-- query assignment/staff information required by the dashboard.
+Additional indexes should be justified by actual query requirements instead of being added speculatively.
 
 ---
 
-## 15. Schema Evolution and EF Core Migrations
+## 13. Schema Evolution
 
-Schema changes must be controlled through source control.
+Dapper does not generate migrations, therefore CivicConnect uses version-controlled SQL migration scripts.
+
+Current baseline:
+
+`database/migrations/001_initial_schema.sql`
+
+Workflow:
 
 ```text
-Change entity/model
-        ↓
-Generate EF Core migration
-        ↓
-Review migration
-        ↓
-Commit migration to GitHub
-        ↓
-Peer review / CI
-        ↓
-Apply migration to development database
+Schema/design change
+    ↓
+Create numbered SQL migration
+    ↓
+Peer review migration
+    ↓
+Commit/PR
+    ↓
+Apply to development database
+    ↓
+Verify application behaviour
 ```
 
-Initial migration names could include:
-- `InitialCreate`
-- `AddRequestHistory`
-- `AddConcurrencyVersion`
-
-### Rules
-- Avoid unrecorded manual production-schema changes.
-- Migrations must be committed.
-- Schema changes affecting requirements should update relevant documentation/RTM evidence.
-- Breaking changes should be reviewed before merge.
-- Credentials must never be embedded inside migrations.
+Manual database changes that are not represented in the repository should be avoided because they create schema drift between developers.
 
 ---
 
-## 16. Configuration and Secret Handling
+## 14. Configuration and Secrets
 
-The repository may contain configuration templates and setup instructions, but it must not contain live credentials.
+Connection credentials must not be committed to GitHub.
 
-Do **not** commit:
-- MySQL passwords;
-- Oracle/hosting passwords;
-- API keys;
-- private keys;
+Do not commit:
+
+- `.env` files containing live secrets;
+- database passwords;
+- Oracle credentials;
 - access tokens;
-- production connection strings containing credentials;
-- `.env` files containing live values.
+- private keys;
+- production connection strings.
 
-A safe example may be documented as:
+The application obtains `ConnectionStrings:DefaultConnection` through normal ASP.NET configuration. Local secrets should be supplied through User Secrets, environment variables or another approved secret mechanism.
 
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=YOUR_SERVER;Database=CivicConnect;User=YOUR_USER;Password=YOUR_PASSWORD;"
-  }
-}
+---
+
+## 15. Availability, SPOF and Recovery
+
+The current single MySQL database is an architectural single point of failure. If it becomes unavailable, CivicConnect cannot safely create or update requests.
+
+For M2 the risk is recognised rather than over-engineered. Before production deployment, the team must confirm:
+
+- hosting availability features;
+- backup frequency;
+- backup retention;
+- restore process;
+- recovery ownership;
+- acceptable recovery time and recovery point.
+
+The application should fail safely when persistence is unavailable and must not report a database-changing operation as successful when it was not committed.
+
+---
+
+## 16. Initial Verification
+
+| Check | Expected result |
+|---|---|
+| Valid service request | Saved with unique Ticket Number |
+| Invalid requester/category/status FK | Rejected by database |
+| Duplicate ticket number | Rejected by UNIQUE constraint |
+| Request creation | Request + history + developer log commit together |
+| Failure during multi-write | Entire transaction rolls back |
+| Status update | Current status and history/log update together |
+| Stale version | Update rejected as concurrency conflict |
+| Request list | Ordered by `RequestDate` and maps category/status names correctly |
+| Resolved without notes | Service layer rejects operation |
+
+---
+
+## 17. Requirement Traceability
+
+| Requirement | Main persistence evidence |
+|---|---|
+| FR-001 | `ServiceRequests`, unique `TicketNumber`, request-creation transaction |
+| FR-002 | `ServiceRequests` + `RequestHistory` |
+| FR-003 | `Assignments` + history entries |
+| FR-004 | status FK, comments/resolution, history and transaction handling |
+| FR-005 | indexed request/status/category/assignment data |
+| Auditability | `RequestHistory` |
+| Developer logging | `DeveloperLogs` |
+| Data integrity | constraints + transaction rollback + concurrency version |
+
+---
+
+## 18. Risks
+
+| Risk | Impact | Mitigation |
+|---|---|---|
+| Partial multi-table update | High | MySQL transaction + rollback |
+| Invalid relational data | High | PK/FK/NOT NULL/UNIQUE constraints |
+| Lost concurrent update | Medium/High | `Version` optimistic concurrency |
+| Schema drift | Medium | numbered SQL migrations in Git |
+| Credential exposure | High | secrets outside repository |
+| Raw SQL coupling | Medium | SQL restricted to repository layer |
+| Mapping mismatch | Medium | explicit aliases, tests and review |
+| Database outage | High | controlled failure + later hosting/backup baseline |
+| Excessive/noisy developer logs | Medium | log selected engineering events only |
+| Sensitive information in logs | High | prohibit secrets/passwords/tokens in log details |
+
+---
+
+## 19. Open Decisions
+
+The following remain controlled future decisions rather than assumptions hidden in code:
+
+- final authentication/identity schema;
+- final production MySQL hosting configuration;
+- backup/recovery targets;
+- exact category list;
+- any statuses beyond Pending/In Progress/Resolved;
+- long-term data retention/deletion policy;
+- final developer-log retention policy;
+- final human-readable ticket-number format.
+
+---
+
+## 20. Repository Evidence
+
+The database baseline is represented through:
+
+```text
+CivicConnect/
+├── Data/
+│   ├── IRequestRepository.cs
+│   └── RequestRepository.cs
+├── Models/
+│   ├── ServiceRequest.cs
+│   ├── RequestHistory.cs
+│   └── DeveloperLog.cs
+├── database/
+│   └── migrations/
+│       └── 001_initial_schema.sql
+└── docs/
+    ├── database-design.md
+    ├── diagrams/
+    │   └── CivicConnect_ERD.md
+    └── adr/
+        ├── ADR-002_Tech_stack_and_persistence.md
+        └── ADR-003_data_persistence.md
 ```
 
-Real values must be supplied using the team's approved environment/secrets mechanism.
-
----
-
-## 17. Security and Sensitive Data Considerations
-
-The database design supports security but does not replace application-level authorisation.
-
-Key principles for the current baseline:
-
-- only authorised application functions may change request state;
-- foreign keys prevent invalid relational references;
-- users should not be physically deleted if doing so destroys required audit links;
-- access to database credentials must be restricted;
-- raw SQL should not be constructed casually in controllers;
-- user input must still be validated by the application;
-- sensitive configuration must stay outside source control;
-- audit/history records must preserve who performed important actions.
-
-The final identity/password design belongs to the authentication decision and should not be invented independently in the database layer.
-
----
-
-## 18. Availability, SPOF and Recovery Considerations
-
-M2 requires database availability, bottleneck, scalability and recovery implications to be considered even though full production operations are not yet required.
-
-### 18.1 Single point of failure
-
-A single MySQL instance can become a single point of failure for CivicConnect because the core application depends on request persistence.
-
-For M2 this risk is **recognised rather than fully solved**.
-
-### 18.2 Availability
-
-If the database becomes unavailable:
-
-- new requests cannot be persisted reliably;
-- request assignments/status changes cannot be safely committed;
-- request history cannot be updated reliably;
-- management reporting becomes unavailable or stale.
-
-The application should fail safely rather than pretend an operation succeeded.
-
-### 18.3 Backup and recovery
-
-The final hosting platform's backup/recovery features must be confirmed before the production baseline.
-
-The team should later define:
-
-- backup frequency;
-- retention;
-- restore procedure;
-- who is responsible for recovery;
-- acceptable recovery point;
-- acceptable recovery time.
-
-For M2, the important engineering evidence is that database loss/availability is identified as a material risk and is not ignored.
-
-### 18.4 Scalability
-
-The current relational design is appropriate to the strongly related request/assignment/history data. Initial scaling attention should focus on:
-
-- sensible indexes;
-- avoiding unnecessary full-table queries;
-- pagination for request lists;
-- efficient dashboard queries;
-- connection management through the selected framework/provider.
-
-No distributed database architecture is currently justified by the M2 requirements.
-
----
-
-## 19. Initial Verification Plan
-
-| Test/check | Expected result |
-|---|---|
-| Create valid service request | Request is persisted with a unique ticket number |
-| Missing/invalid requester | Write is rejected |
-| Missing/invalid category | Write is rejected |
-| Duplicate ticket number | Write is rejected |
-| Assignment to valid staff user | Assignment is persisted |
-| Assignment to invalid user ID | FK rejects invalid relationship |
-| Status update with history | Current status and history entry are both stored |
-| Resolution without required note | Application rejects operation |
-| Failure during multi-step write | Transaction rolls back |
-| Conflicting version update | Stale update is rejected/handled |
-| Requester history query | Returns requests belonging to requester |
-| Audit history query | Returns ordered lifecycle events for request |
-
-Not every test must be complete in M2, but implemented persistence decisions should have initial verification where practical.
-
----
-
-## 20. Requirement-to-Database Traceability
-
-| Requirement | Database entities | Main integrity/decision evidence |
-|---|---|---|
-| FR-001 Service Request Submission | Users, Categories, RequestStatuses, ServiceRequests, RequestHistory | Unique TicketNumber; requester/category/status FKs; submission transaction |
-| FR-002 Request Tracking & History | ServiceRequests, RequestStatuses, RequestHistory | Current state plus historical lifecycle |
-| FR-003 Request Assignment | Assignments, Users, ServiceRequests, RequestHistory | Valid staff FK; assignment lifecycle; timestamp/history |
-| FR-004 Status & Resolution | ServiceRequests, RequestStatuses, RequestComments, RequestHistory | controlled state update; required resolution note; transaction |
-| FR-005 Dashboard | ServiceRequests, Assignments, RequestStatuses, Categories | queryable relational data; candidate indexes |
-| RBAC | Users / selected identity model | role context used by application authorisation |
-| Auditability | RequestHistory | actor, request, state, timestamp and notes |
-| Data integrity | All related entities | PK/FK/NOT NULL/UNIQUE + transaction + concurrency |
-
----
-
-## 21. Database Risks and Mitigations
-
-| Risk | Likelihood | Impact | Mitigation |
-|---|---|---|---|
-| Database connectivity failure | Medium | High | controlled failure handling; environment configuration; documented setup |
-| Partial multi-table update | Medium | High | application-managed transaction and rollback |
-| Invalid relational data | Low | High | primary/foreign keys, required fields and unique constraints |
-| Lost concurrent update | Medium | Medium/High | optimistic concurrency token and controlled conflict handling |
-| Schema drift between developers | Medium | Medium | version-controlled EF Core migrations |
-| Credentials committed to GitHub | Low | High | environment/secrets mechanism and `.gitignore` |
-| Destructive cascade/delete removes audit evidence | Low | High | conservative delete behaviour; deactivate where appropriate |
-| Database instance unavailable/SPOF | Medium | High | record architecture risk; confirm hosting backup/availability strategy |
-| Slow request/dashboard queries as data grows | Medium | Medium | indexes based on actual access patterns; pagination; query review |
-| Application and schema become tightly coupled through raw SQL | Medium | Medium/High | defined EF Core/data-access layer and service boundaries |
+This evidence must remain consistent with the implementation as the project evolves.

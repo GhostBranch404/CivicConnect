@@ -2,6 +2,19 @@
 bin/
 obj/
 .vscode/
+
 # Visual Studio user files
 *.user
 *.suo
+
+# Local environment and secret configuration
+.env
+.env.*
+!.env.example
+appsettings.Local.json
+appsettings.Secrets.json
+secrets.json
+
+# Local database/config artefacts
+*.db
+*.sqlite
