@@ -4,6 +4,7 @@ namespace CivicConnect.Core.Models
     {
         public int HistoryId { get; set; }
         public int RequestId { get; set; }
+        public string TicketNumber { get; set; } = string.Empty;
         public int ChangedByUserId { get; set; }
         public int? OldStatusId { get; set; }
         public int? NewStatusId { get; set; }

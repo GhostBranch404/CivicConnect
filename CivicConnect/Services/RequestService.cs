@@ -7,7 +7,11 @@ namespace CivicConnect.Core.Services
     public class RequestService : IRequestService
     {
         private readonly IRequestRepository _repository;
+<<<<<<< Updated upstream
         // Defines the valid status state transitions for the requests
+=======
+        private readonly IAuditHistoryService _auditHistoryService;
+>>>>>>> Stashed changes
         private static readonly HashSet<string> ValidStatuses =
             new(StringComparer.OrdinalIgnoreCase)
             {
@@ -16,9 +20,10 @@ namespace CivicConnect.Core.Services
                 "Resolved"
             };
 
-        public RequestService(IRequestRepository repository)
+        public RequestService(IRequestRepository repository, IAuditHistoryService auditHistoryService)
         {
             _repository = repository;
+            _auditHistoryService = auditHistoryService;
         }
 
 // Validates the user input and initiates request submission
@@ -53,8 +58,12 @@ namespace CivicConnect.Core.Services
         public Task<IEnumerable<ServiceRequest>> GetAllRequests() =>
             _repository.GetAllRequests();
 
+<<<<<<< Updated upstream
 // Prevents any unauthorized or invalid status transition changes
         public Task<bool> UpdateRequestStatus(
+=======
+        public async Task<bool> UpdateRequestStatus(
+>>>>>>> Stashed changes
             int id,
             string newStatus,
             int changedByUserId,
@@ -79,13 +88,46 @@ namespace CivicConnect.Core.Services
                 throw new ArgumentException("Resolution notes are required when resolving a request.");
             }
 
+<<<<<<< Updated upstream
 // Update status of the request through the repository
             return _repository.UpdateRequestStatus(
+=======
+            var existingRequest = await _repository.GetRequestById(id);
+            if (existingRequest is null)
+                return false;
+
+            var previousStatusId = existingRequest.StatusId;
+            var newStatusId = await _repository.GetStatusIdByNameAsync(newStatus);
+
+            if (newStatusId is null)
+            {
+                throw new ArgumentException($"Unknown request status: '{newStatus}'.");
+            }
+
+            var result = await _repository.UpdateRequestStatus(
+>>>>>>> Stashed changes
                 id,
                 newStatus,
                 changedByUserId,
                 expectedVersion,
                 notes);
+
+            if (!result)
+                return false;
+
+            await _auditHistoryService.RecordChangeAsync(new RequestHistory
+            {
+                RequestId = id,
+                TicketNumber = existingRequest.TicketNumber,
+                ChangedByUserId = changedByUserId,
+                OldStatusId = previousStatusId,
+                NewStatusId = newStatusId.Value,
+                ActionType = "StatusChanged",
+                Notes = notes,
+                ChangedAt = DateTime.UtcNow
+            });
+
+            return true;
         }
     }
 }
