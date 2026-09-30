@@ -190,6 +190,6 @@ Status updates now include the acting user and expected concurrency version:
 
 ## External project documentation
 
-Project documentation workspace: Belgium Campus SharePoint.
+Project documentation workspace: Belgium Campus SharePoint: https://belgiumcampusacza-my.sharepoint.com/:f:/g/personal/601609_student_belgiumcampus_ac_za/IgCLEkD1yq6URJN_AeA2ypQ4AQFPC6EZgSYZdrtlkCiyUEU?e=XZAf1L
 
 Project/task tracking: ClickUp.
