@@ -147,6 +147,32 @@ namespace CivicConnect.Core.Data
             return await connection.QueryAsync<ServiceRequest>(sql);
         }
 
+        public async Task<int?> GetStatusIdByNameAsync(string statusName)
+        {
+            await using var connection = new MySqlConnection(_connectionString);
+
+            const string sql = @"
+                SELECT StatusId
+                FROM RequestStatuses
+                WHERE StatusName = @StatusName;";
+
+            return await connection.QuerySingleOrDefaultAsync<int?>(sql, new { StatusName = statusName });
+        }
+
+        public async Task RecordRequestHistoryAsync(RequestHistory history)
+        {
+            await using var connection = new MySqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            const string sql = @"
+                INSERT INTO RequestHistory
+                    (RequestId, ChangedByUserId, OldStatusId, NewStatusId, ActionType, Notes, ChangedAt)
+                VALUES
+                    (@RequestId, @ChangedByUserId, @OldStatusId, @NewStatusId, @ActionType, @Notes, @ChangedAt);";
+
+            await connection.ExecuteAsync(sql, history);
+        }
+
         public async Task<bool> UpdateRequestStatus(
             int id,
             string status,
@@ -224,25 +250,6 @@ namespace CivicConnect.Core.Data
                 }
 
                 var changedAt = DateTime.UtcNow;
-
-                const string historySql = @"
-                    INSERT INTO RequestHistory
-                        (RequestId, ChangedByUserId, OldStatusId, NewStatusId, ActionType, Notes, ChangedAt)
-                    VALUES
-                        (@RequestId, @ChangedByUserId, @OldStatusId, @NewStatusId, 'StatusChanged', @Notes, @ChangedAt);";
-
-                await connection.ExecuteAsync(
-                    historySql,
-                    new
-                    {
-                        RequestId = id,
-                        ChangedByUserId = changedByUserId,
-                        OldStatusId = current.StatusId,
-                        NewStatusId = newStatusId.Value,
-                        Notes = notes,
-                        ChangedAt = changedAt
-                    },
-                    transaction);
 
                 const string logSql = @"
                     INSERT INTO DeveloperLogs

@@ -7,6 +7,8 @@ namespace CivicConnect.Core.Data
         Task<int> CreateNewRequest(ServiceRequest request);
         Task<ServiceRequest?> GetRequestById(int id);
         Task<IEnumerable<ServiceRequest>> GetAllRequests();
+        Task<int?> GetStatusIdByNameAsync(string statusName);
+        Task RecordRequestHistoryAsync(RequestHistory history);
 
         Task<bool> UpdateRequestStatus(
             int id,

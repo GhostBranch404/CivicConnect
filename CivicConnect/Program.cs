@@ -14,6 +14,7 @@ string connectionString = builder.Configuration.GetConnectionString("DefaultConn
 
 // Register Repository and Service Dependencies
 builder.Services.AddScoped<IRequestRepository>(provider => new RequestRepository(connectionString));
+builder.Services.AddScoped<IAuditHistoryService, AuditHistoryService>();
 builder.Services.AddScoped<IRequestService, RequestService>();
 
 var app = builder.Build();
