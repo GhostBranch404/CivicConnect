@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace CivicConnect.Core.Controllers
 {
+// RESTful API Controller responsible for managing the external HTTP requests for service requests
     [ApiController]
     [Route("api/[controller]")]
     public class RequestController : ControllerBase
@@ -15,6 +16,7 @@ namespace CivicConnect.Core.Controllers
             _service = service;
         }
 
+// Responsible for managing the endpoint for users to submit new requests
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] ServiceRequest request)
         {
@@ -32,6 +34,7 @@ namespace CivicConnect.Core.Controllers
             }
         }
 
+// Endpoint for the query status by request ID
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetById(int id)
         {
@@ -49,6 +52,7 @@ namespace CivicConnect.Core.Controllers
             return Ok(requests);
         }
 
+// Restricts access to status updates to only authorized staff members
         [HttpPatch("{id:int}/status")]
         public async Task<IActionResult> UpdateStatus(
             int id,
