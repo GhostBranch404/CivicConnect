@@ -3,9 +3,11 @@ using CivicConnect.Core.Models;
 
 namespace CivicConnect.Core.Services
 {
+// Responsible for the business logic, validation, and workflow state transitions forthe systems service requests.
     public class RequestService : IRequestService
     {
         private readonly IRequestRepository _repository;
+        // Defines the valid status state transitions for the requests
         private static readonly HashSet<string> ValidStatuses =
             new(StringComparer.OrdinalIgnoreCase)
             {
@@ -19,6 +21,7 @@ namespace CivicConnect.Core.Services
             _repository = repository;
         }
 
+// Validates the user input and initiates request submission
         public async Task<int> RequestSubmission(ServiceRequest request)
         {
             if (request.RequesterId <= 0)
@@ -50,6 +53,7 @@ namespace CivicConnect.Core.Services
         public Task<IEnumerable<ServiceRequest>> GetAllRequests() =>
             _repository.GetAllRequests();
 
+// Prevents any unauthorized or invalid status transition changes
         public Task<bool> UpdateRequestStatus(
             int id,
             string newStatus,
@@ -75,6 +79,7 @@ namespace CivicConnect.Core.Services
                 throw new ArgumentException("Resolution notes are required when resolving a request.");
             }
 
+// Update status of the request through the repository
             return _repository.UpdateRequestStatus(
                 id,
                 newStatus,
