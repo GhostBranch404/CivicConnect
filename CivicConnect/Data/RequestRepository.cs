@@ -4,6 +4,7 @@ using MySqlConnector;
 
 namespace CivicConnect.Core.Data
 {
+// Allows for data access for the system through the service requests using Dapper and MySQL
     public class RequestRepository : IRequestRepository
     {
         private readonly string _connectionString;
@@ -12,7 +13,7 @@ namespace CivicConnect.Core.Data
         {
             _connectionString = connectionString;
         }
-
+// Inserts a new service request into the database.
         public async Task<int> CreateNewRequest(ServiceRequest request)
         {
             await using var connection = new MySqlConnection(_connectionString);
@@ -87,6 +88,7 @@ namespace CivicConnect.Core.Data
             }
         }
 
+// Return the service request by its unique request id.
         public async Task<ServiceRequest?> GetRequestById(int id)
         {
             await using var connection = new MySqlConnection(_connectionString);
