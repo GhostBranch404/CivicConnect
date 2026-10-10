@@ -1124,7 +1124,7 @@ relevant scalability, availability and SPOF implications.
 
 #  
 
-## ![CivicConnect Entity Relationship Diagram](docs/images/media/CivicConnectERD.png)ERD
+## ![CivicConnect Entity Relationship Diagram](CivicConnect/docs/images/media/CivicConnectERD.png)ERD
 
 # Forward Engineering Considerations
 
