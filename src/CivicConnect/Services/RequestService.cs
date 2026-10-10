@@ -3,14 +3,6 @@ using CivicConnect.Core.Models;
 
 namespace CivicConnect.Core.Services
 {
-    public interface IRequestService
-    {
-        Task<int> RequestSubmission(ServiceRequest request);
-        Task<ServiceRequest?> GetRequestById(int id);
-        Task<IEnumerable<ServiceRequest>> GetAllRequests();
-        Task<bool> UpdateRequestStatus(int id, string newStatus);
-    }
-
     public class RequestService : IRequestService
     {
         private readonly IRequestRepository repository;
@@ -37,14 +29,18 @@ namespace CivicConnect.Core.Services
 
         public async Task<IEnumerable<ServiceRequest>> GetAllRequests() => await repository.GetAllRequests();
 
-        public async Task<bool> UpdateRequestStatus(int id, string newStatus)
+       public async Task<bool> UpdateRequestStatus(int id,
+        string newStatus,
+        int changedByUserId,
+        int expectedVersion,
+        string? notes = null)
         {
             if (!ValidStatus.Contains(newStatus))
             {
                 throw new ArgumentException($"Invalid status value: '{newStatus}'. Allowed values: Pending, In Progress, Resolved.");
             }
 
-            return await repository.UpdateRequestStatus(id, newStatus);
+            return await repository.UpdateRequestStatus(id, newStatus, changedByUserId, expectedVersion, notes);
         }
     }
 }

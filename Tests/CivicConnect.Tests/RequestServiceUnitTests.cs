@@ -38,21 +38,27 @@ namespace CivicConnect.Tests.Unit
         public async Task Update_Request_Status_Valid_Status()
         {
             int ticketId = 101;
-            
-            _mockRepo.Setup(r => r.UpdateRequestStatus(ticketId, "In Progress")).ReturnsAsync(true);
+            int userId = 1;
+            int version = 1;
+            string newStatus = "In Progress";
 
-            await _service.UpdateRequestStatus(ticketId, "In Progress");
+            _mockRepo.Setup(r => r.UpdateRequestStatus(ticketId, newStatus, userId, version, null))
+                     .ReturnsAsync(true);
 
-            _mockRepo.Verify(r => r.UpdateRequestStatus(ticketId, "In Progress"), Times.Once);
+            await _service.UpdateRequestStatus(ticketId, newStatus, userId, version);
+
+            _mockRepo.Verify(r => r.UpdateRequestStatus(ticketId, newStatus, userId, version, null), Times.Once);
         }
 
         [Fact]
         public async Task Update_Request_Status_Invalid_Status()
         {
             int ticketId = 102;
+            int userId = 1;
+            int version = 1;
 
             await Assert.ThrowsAsync<ArgumentException>(
-                () => _service.UpdateRequestStatus(ticketId, "IllegalStatus")
+                () => _service.UpdateRequestStatus(ticketId, "IllegalStatus", userId, version)
             );
         }
     }

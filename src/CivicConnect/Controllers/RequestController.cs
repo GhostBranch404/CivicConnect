@@ -4,6 +4,14 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace CivicConnect.Core.Controllers
 {
+    public class UpdateStatusRequestModel
+    {
+        public string NewStatus { get; set; } = string.Empty;
+        public int ChangedByUserId { get; set; }
+        public int ExpectedVersion { get; set; }
+        public string? Notes { get; set; }
+    }
+
     [ApiController]
     [Route("api/[controller]")]
     public class RequestController : ControllerBase
@@ -45,13 +53,24 @@ namespace CivicConnect.Core.Controllers
         }
 
         [HttpPatch("{id:int}/status")]
-        public async Task<IActionResult> UpdateStatus(int id, [FromBody] string newStatus)
+        public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateStatusRequestModel model)
         {
             try
             {
-                bool updated = await services.UpdateRequestStatus(id, newStatus);
-                if (!updated) return NotFound(new { Message = $"Request #{id} was not found." });
-                return Ok(new { Message = $"Request #{id} updated to '{newStatus}' successfully." });
+                bool updated = await services.UpdateRequestStatus(
+                    id, 
+                    model.NewStatus, 
+                    model.ChangedByUserId, 
+                    model.ExpectedVersion, 
+                    model.Notes
+                );
+
+                if (!updated) 
+                {
+                    return Conflict(new { Message = $"Conflict or Request #{id} was not found. Please verify the expected version." });
+                }
+
+                return Ok(new { Message = $"Request #{id} updated to '{model.NewStatus}' successfully." });
             }
             catch (ArgumentException ex)
             {
