@@ -1,0 +1,20 @@
+using CivicConnect.Core.Models;
+
+namespace CivicConnect.Core.Data
+{
+    public interface IRequestRepository
+    {
+        Task<int> CreateNewRequest(ServiceRequest request);
+        Task<ServiceRequest?> GetRequestById(int id);
+        Task<IEnumerable<ServiceRequest>> GetAllRequests();
+        Task<int?> GetStatusIdByNameAsync(string statusName);
+        Task RecordRequestHistoryAsync(RequestHistory history);
+
+        Task<bool> UpdateRequestStatus(
+            int id,
+            string status,
+            int changedByUserId,
+            int expectedVersion,
+            string? notes = null);
+    }
+}
