@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("CivicConnect.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8222fa6bc63cfe023a0ed27cf5ff6783cf730071")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+73b2733b640b2183efd8541bb811b718e5ff416c")]
 [assembly: System.Reflection.AssemblyProductAttribute("CivicConnect.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CivicConnect.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
