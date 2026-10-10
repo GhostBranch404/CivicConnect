@@ -1,9 +1,196 @@
-## CivicConnect
-(SEN381 Project) CivicConnect: Community Service Request Management Platform. A controlled digital platform to submit, track, manage, and report community service requests with end-to-end engineering traceability.
+# CivicConnect
 
+**SEN381 Project – Community Service Request Management Platform**
 
-## Documentation
-https://belgiumcampusacza-my.sharepoint.com/:f:/g/personal/601609_student_belgiumcampus_ac_za/IgCLEkD1yq6URJN_AeA2ypQ4AQFPC6EZgSYZdrtlkCiyUEU?e=XZAf1L
+CivicConnect is a controlled digital platform for submitting, tracking, assigning and resolving community service requests with engineering traceability.
 
-## Clickup
-https://app.clickup.com/90152697495/v/s/901511925121
+## Current M2 baseline
+
+- C# / ASP.NET Core Web API
+- 3-tier layered monolith
+- MySQL
+- Dapper + MySqlConnector
+- Controller → Service → Repository → Database
+- Request history and database-backed developer/application logging
+
+## Project status
+
+CivicConnect is currently in Milestone 2 development.
+
+Implemented or in progress:
+- Service request submission
+- Request retrieval and status updates
+- MySQL persistence using Dapper
+- Request history logging
+- Developer/application logging
+- Basic database transaction and concurrency handling
+
+Still in progress:
+- Authentication and Role-Based Access Control
+- Staff assignment workflow
+- Management dashboard
+- Full verification and testing
+- Production hosting and deployment
+
+## User roles
+
+- **Requester** – submits requests and views their own request progress.
+- **Staff** – manages, assigns and updates service requests.
+- **Management** – views higher-level request and performance information.
+
+## Core features
+
+- Submit a service request
+- Generate and track a unique ticket
+- View request history and status
+- Assign requests to staff
+- Update progress and resolution information
+- Record request history
+- Record selected developer/application logs
+- Provide management oversight through a dashboard
+
+## Architecture
+
+CivicConnect follows a 3-tier layered structure:
+
+```text
+Controller
+    ↓
+Service
+    ↓
+Repository
+    ↓
+Dapper / MySqlConnector
+    ↓
+MySQL
+```
+
+This keeps request handling, business rules and database access separated.
+
+## Repository structure
+
+```text
+src/
+└── CivicConnect/
+    ├── Controllers/
+    ├── Data/
+    ├── Models/
+    ├── Services/
+    └── database/
+        └── migrations/
+Tests/
+└── CivicConnect.Tests/
+src/docs/
+└── adr/
+```
+
+## Prerequisites
+
+- .NET 9 SDK
+- MySQL development database
+- Git
+
+## Local setup
+
+```bash
+git clone https://github.com/GhostBranch404/CivicConnect.git
+cd CivicConnect
+dotnet restore CivicConnect.sln
+```
+
+Provide `ConnectionStrings:DefaultConnection` through ASP.NET User Secrets or environment variables.
+
+Do **not** commit real database credentials.
+
+Example User Secrets setup:
+
+```bash
+cd src/CivicConnect
+dotnet user-secrets init
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost;Port=3306;Database=CivicConnect;User=YOUR_USER;Password=YOUR_PASSWORD;"
+```
+
+## Database setup
+
+Apply the SQL migration in order:
+
+```text
+src/CivicConnect/database/migrations/001_initial_schema.sql
+```
+
+The initial schema creates the request, reference, assignment, history, comment and developer-log tables and seeds the initial request statuses/categories.
+
+## Run
+
+```bash
+dotnet run --project src/CivicConnect
+```
+
+When running in Development, Swagger is enabled for the Web API.
+
+## Testing and verification
+
+Run the full suite with a MySQL test database. Set `CIVICCONNECT_TEST_CONNECTION` to its connection string and apply `src/CivicConnect/database/migrations/001_initial_schema.sql` first:
+
+```bash
+dotnet test CivicConnect.sln
+```
+
+Database verification also includes:
+- Applying the SQL migration
+- Creating and retrieving a request
+- Updating request status
+- Checking request history and developer logs
+- Checking rollback behaviour
+- Checking concurrency conflicts
+
+Some of these checks are still being completed during M2.
+
+## Request status update body
+
+Status updates now include the acting user and expected concurrency version:
+
+```json
+{
+  "newStatus": "In Progress",
+  "changedByUserId": 2,
+  "expectedVersion": 1,
+  "notes": "Request acknowledged and work started."
+}
+```
+
+## Known limitations
+
+- Authentication and RBAC are still being finalised.
+- Production hosting has not yet been selected.
+- Backup and recovery procedures are not finalised.
+- Performance/load testing is still outstanding.
+- The user interface is still under development.
+
+## Git workflow
+
+- Do not commit substantive changes directly to `main`.
+- Use a feature branch for development work.
+- Open a Pull Request before merging.
+- Team members should review changes before they are merged.
+
+## Security notes
+
+- Do not commit passwords or database credentials.
+- Use User Secrets or environment variables for connection strings.
+- Database queries should remain parameterised.
+- Sensitive values should not be written to developer logs.
+
+## Engineering documentation
+
+- `src/docs/adr/ADR-001_architectural_style.md`
+- `src/docs/adr/ADR-002_Tech_stack_and_persistence.md`
+- `src/docs/adr/ADR-003_data_persistence.md`
+- `src/docs/database-design.md`
+- `src/docs/diagrams/CivicConnect_ERD.md`
+
+## External project documentation
+
+Project documentation workspace: Belgium Campus SharePoint: https://belgiumcampusacza-my.sharepoint.com/:f:/g/personal/601609_student_belgiumcampus_ac_za/IgCLEkD1yq6URJN_AeA2ypQ4AQFPC6EZgSYZdrtlkCiyUEU?e=XZAf1L
+
+Project/task tracking: ClickUp.

@@ -4,7 +4,8 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Hosting;
 using Xunit;
-using CivicConnect.Core.Services; 
+using CivicConnect.Core.Services;
+using CivicConnect.Tests;
 
 namespace CivicConnect.Tests.Integration
 {
@@ -14,6 +15,7 @@ namespace CivicConnect.Tests.Integration
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseSetting("https_port", "443");
+            builder.UseSetting("ConnectionStrings:DefaultConnection", DatabaseTestHelper.ConnectionString);
             builder.UseEnvironment("Development");
         }
     }

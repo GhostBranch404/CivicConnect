@@ -11,12 +11,14 @@ namespace CivicConnect.Tests.Unit
     public class RequestServiceUnitTests
     {
         private readonly Mock<IRequestRepository> _mockRepo;
+        private readonly Mock<IAuditHistoryService> _mockAuditHistoryService;
         private readonly RequestService _service;
 
         public RequestServiceUnitTests()
         {
             _mockRepo = new Mock<IRequestRepository>();
-            _service = new RequestService(_mockRepo.Object);
+            _mockAuditHistoryService = new Mock<IAuditHistoryService>();
+            _service = new RequestService(_mockRepo.Object, _mockAuditHistoryService.Object);
         }
 
         [Fact]
@@ -24,8 +26,9 @@ namespace CivicConnect.Tests.Unit
         {
             var invalidRequest = new ServiceRequest
             {
-                Username = "Aiden Moses",
-                Category = "Water & Sanitation",
+                RequesterId = 1,
+                CategoryId = 1,
+                Title = "Test request",
                 Description = "   "
             };
 
@@ -44,10 +47,20 @@ namespace CivicConnect.Tests.Unit
 
             _mockRepo.Setup(r => r.UpdateRequestStatus(ticketId, newStatus, userId, version, null))
                      .ReturnsAsync(true);
+            _mockRepo.Setup(r => r.GetRequestById(ticketId))
+                     .ReturnsAsync(new ServiceRequest { RequestId = ticketId, StatusId = 1 });
+            _mockRepo.Setup(r => r.GetStatusIdByNameAsync(newStatus))
+                     .ReturnsAsync(2);
 
             await _service.UpdateRequestStatus(ticketId, newStatus, userId, version);
 
             _mockRepo.Verify(r => r.UpdateRequestStatus(ticketId, newStatus, userId, version, null), Times.Once);
+            _mockAuditHistoryService.Verify(
+                service => service.RecordChangeAsync(It.Is<RequestHistory>(history =>
+                    history.RequestId == ticketId &&
+                    history.OldStatusId == 1 &&
+                    history.NewStatusId == 2)),
+                Times.Once);
         }
 
         [Fact]
