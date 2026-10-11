@@ -70,22 +70,23 @@ This keeps request handling, business rules and database access separated.
 ## Repository structure
 
 ```text
-CivicConnect/
-├── Controllers/
-├── Data/
-├── Models/
-├── Services/
-├── database/
-│   └── migrations/
-└── docs/
-    ├── adr/
-    ├── diagrams/
-    └── database-design.md
+src/
+└── CivicConnect/
+    ├── Controllers/
+    ├── Data/
+    ├── Models/
+    ├── Services/
+    └── database/
+        └── migrations/
+Tests/
+└── CivicConnect.Tests/
+src/docs/
+└── adr/
 ```
 
 ## Prerequisites
 
-- .NET 8 SDK
+- .NET 9 SDK
 - MySQL development database
 - Git
 
@@ -93,17 +94,18 @@ CivicConnect/
 
 ```bash
 git clone https://github.com/GhostBranch404/CivicConnect.git
-cd CivicConnect/CivicConnect
-dotnet restore
+cd CivicConnect
+dotnet restore CivicConnect.sln
 ```
 
-Copy `appsettings.example.json` to a local configuration file or provide `ConnectionStrings:DefaultConnection` through ASP.NET User Secrets/environment variables.
+Provide `ConnectionStrings:DefaultConnection` through ASP.NET User Secrets or environment variables.
 
 Do **not** commit real database credentials.
 
 Example User Secrets setup:
 
 ```bash
+cd src/CivicConnect
 dotnet user-secrets init
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost;Port=3306;Database=CivicConnect;User=YOUR_USER;Password=YOUR_PASSWORD;"
 ```
@@ -113,7 +115,7 @@ dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost;
 Apply the SQL migration in order:
 
 ```text
-CivicConnect/database/migrations/001_initial_schema.sql
+src/CivicConnect/database/migrations/001_initial_schema.sql
 ```
 
 The initial schema creates the request, reference, assignment, history, comment and developer-log tables and seeds the initial request statuses/categories.
@@ -121,18 +123,17 @@ The initial schema creates the request, reference, assignment, history, comment 
 ## Run
 
 ```bash
-dotnet run
+dotnet run --project src/CivicConnect
 ```
 
 When running in Development, Swagger is enabled for the Web API.
 
 ## Testing and verification
 
-Basic project checks:
+Run the full suite with a MySQL test database. Set `CIVICCONNECT_TEST_CONNECTION` to its connection string and apply `src/CivicConnect/database/migrations/001_initial_schema.sql` first:
 
 ```bash
-dotnet restore
-dotnet build
+dotnet test CivicConnect.sln
 ```
 
 Database verification also includes:
@@ -182,11 +183,11 @@ Status updates now include the acting user and expected concurrency version:
 
 ## Engineering documentation
 
-- `CivicConnect/docs/adr/ADR-001_architectural_style.md`
-- `CivicConnect/docs/adr/ADR-002_Tech_stack_and_persistence.md`
-- `CivicConnect/docs/adr/ADR-003_data_persistence.md`
-- `CivicConnect/docs/database-design.md`
-- `CivicConnect/docs/diagrams/CivicConnect_ERD.md`
+- `src/docs/adr/ADR-001_architectural_style.md`
+- `src/docs/adr/ADR-002_Tech_stack_and_persistence.md`
+- `src/docs/adr/ADR-003_data_persistence.md`
+- `src/docs/database-design.md`
+- `src/docs/diagrams/CivicConnect_ERD.md`
 
 ## External project documentation
 

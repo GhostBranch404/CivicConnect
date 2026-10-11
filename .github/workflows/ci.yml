@@ -9,6 +9,22 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    env:
+      CIVICCONNECT_TEST_CONNECTION: Server=127.0.0.1;Port=3306;Database=civicconnect_db;User=root;Password=civicconnect_test;
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: civicconnect_test
+          MYSQL_DATABASE: civicconnect_db
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pcivicconnect_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
 
     steps:
     - name: Checkout Source Code
@@ -17,13 +33,16 @@ jobs:
     - name: Setup .NET SDK
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '8.0.x' # Match your target framework
+        dotnet-version: '9.0.x'
 
     - name: Restore Dependencies
-      run: dotnet restore CivicConnect/CivicConnect.csproj
+      run: dotnet restore CivicConnect.sln
 
     - name: Build Project
-      run: dotnet build CivicConnect/CivicConnect.csproj --configuration Release --no-restore
+      run: dotnet build CivicConnect.sln --configuration Release --no-restore
 
-    - name: Run Tests (if test project exists)
-      run: dotnet test --configuration Release --no-build --verbosity normal || true
+    - name: Initialize test database
+      run: mysql --host=127.0.0.1 --port=3306 --user=root --password=civicconnect_test civicconnect_db < src/CivicConnect/database/migrations/001_initial_schema.sql
+
+    - name: Run Tests
+      run: dotnet test CivicConnect.sln --configuration Release --no-build --verbosity normal
