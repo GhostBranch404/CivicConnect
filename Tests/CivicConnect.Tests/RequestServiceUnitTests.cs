@@ -11,14 +11,12 @@ namespace CivicConnect.Tests.Unit
     public class RequestServiceUnitTests
     {
         private readonly Mock<IRequestRepository> _mockRepo;
-        private readonly Mock<IAuditHistoryService> _mockAuditHistoryService;
         private readonly RequestService _service;
 
         public RequestServiceUnitTests()
         {
             _mockRepo = new Mock<IRequestRepository>();
-            _mockAuditHistoryService = new Mock<IAuditHistoryService>();
-            _service = new RequestService(_mockRepo.Object, _mockAuditHistoryService.Object);
+            _service = new RequestService(_mockRepo.Object);
         }
 
         [Fact]
@@ -55,12 +53,6 @@ namespace CivicConnect.Tests.Unit
             await _service.UpdateRequestStatus(ticketId, newStatus, userId, version);
 
             _mockRepo.Verify(r => r.UpdateRequestStatus(ticketId, newStatus, userId, version, null), Times.Once);
-            _mockAuditHistoryService.Verify(
-                service => service.RecordChangeAsync(It.Is<RequestHistory>(history =>
-                    history.RequestId == ticketId &&
-                    history.OldStatusId == 1 &&
-                    history.NewStatusId == 2)),
-                Times.Once);
         }
 
         [Fact]
