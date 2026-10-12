@@ -1,0 +1,43 @@
+name: civicconnect-staging
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: civicconnect-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: civicconnect_staging_root
+      MYSQL_DATABASE: civicconnect_staging
+      MYSQL_USER: civicconnect_app
+      MYSQL_PASSWORD: civicconnect_app_pwd
+    ports:
+      - "3307:3306"
+    volumes:
+      - civicconnect_mysql_data:/var/lib/mysql
+      - ./src/CivicConnect/database/migrations/001_initial_schema.sql:/docker-entrypoint-initdb.d/001_initial_schema.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-pcivicconnect_staging_root"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  api:
+    build:
+      context: .
+      dockerfile: src/CivicConnect/Dockerfile
+    container_name: civicconnect-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Staging
+      ConnectionStrings__DefaultConnection: Server=mysql;Port=3306;Database=civicconnect_staging;User=civicconnect_app;Password=civicconnect_app_pwd;
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  civicconnect_mysql_data:

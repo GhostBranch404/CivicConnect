@@ -41,6 +41,13 @@ jobs:
     - name: Build Project
       run: dotnet build CivicConnect.sln --configuration Release --no-restore
 
+    - name: Wait for MySQL readiness
+      run: |
+        for i in {1..30}; do
+          mysqladmin ping -h 127.0.0.1 -uroot -pcivicconnect_test && break
+          sleep 2
+        done
+
     - name: Initialize test database
       run: mysql --host=127.0.0.1 --port=3306 --user=root --password=civicconnect_test civicconnect_db < src/CivicConnect/database/migrations/001_initial_schema.sql
 

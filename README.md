@@ -128,6 +128,44 @@ dotnet run --project src/CivicConnect
 
 When running in Development, Swagger is enabled for the Web API.
 
+## API endpoints (backend)
+
+- `POST /api/requests`
+- `GET /api/requests`
+- `GET /api/requests/{id}`
+- `PATCH /api/requests/{id}/status`
+
+Status updates require:
+
+```json
+{
+  "newStatus": "In Progress",
+  "changedByUserId": 2,
+  "expectedVersion": 1,
+  "notes": "Work started"
+}
+```
+
+HTTP behavior:
+- `201 Created` on successful request creation
+- `400 BadRequest` for invalid payloads and invalid foreign-key references
+- `404 NotFound` when a request does not exist
+- `409 Conflict` for duplicate tickets and concurrency conflicts
+
+## Staging setup (Docker Compose)
+
+Run isolated staging services (API + MySQL):
+
+```bash
+docker compose -f docker-compose.staging.yml up --build
+```
+
+Staging stack details:
+- MySQL is isolated from local test and production data
+- Schema is initialized from `src/CivicConnect/database/migrations/001_initial_schema.sql`
+- API health endpoint: `GET /health`
+- API base URL (compose): `http://localhost:8080`
+
 ## Testing and verification
 
 Run the full suite with a MySQL test database. Set `CIVICCONNECT_TEST_CONNECTION` to its connection string and apply `src/CivicConnect/database/migrations/001_initial_schema.sql` first:
@@ -137,14 +175,15 @@ dotnet test CivicConnect.sln
 ```
 
 Database verification also includes:
-- Applying the SQL migration
-- Creating and retrieving a request
-- Updating request status
-- Checking request history and developer logs
-- Checking rollback behaviour
-- Checking concurrency conflicts
 
-Some of these checks are still being completed during M2.
+Required database persistence scenarios are verified in `Tests/CivicConnect.Tests/RequestPersistenceTests.cs`:
+1. Valid request saves/retrieves with initial status, version, history and developer log.
+2. Invalid requester fails with no partial records.
+3. Duplicate ticket is rejected while preserving the original and writing no partial duplicate records.
+4. Resolve request stores status/version, resolution notes, history and developer log.
+5. Transaction rollback is verified by forcing a related write failure after transaction start.
+
+API integration behavior is verified in `Tests/CivicConnect.Tests/Integration/RequestApiIntegrationTests.cs` with strict expected responses (no permissive status assertions).
 
 ## Request status update body
 

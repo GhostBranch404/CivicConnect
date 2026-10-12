@@ -242,6 +242,25 @@ namespace CivicConnect.Core.Data
                         "The request could not be updated because its version changed.");
 
                 var changedAt = DateTime.UtcNow;
+                const string historySql = @"
+                    INSERT INTO RequestHistory
+                        (RequestId, ChangedByUserId, OldStatusId, NewStatusId, ActionType, Notes, ChangedAt)
+                    VALUES
+                        (@RequestId, @ChangedByUserId, @OldStatusId, @NewStatusId, 'StatusChanged', @Notes, @ChangedAt);";
+
+                await connection.ExecuteAsync(
+                    historySql,
+                    new
+                    {
+                        RequestId = id,
+                        ChangedByUserId = changedByUserId,
+                        OldStatusId = current.StatusId,
+                        NewStatusId = newStatusId.Value,
+                        Notes = notes,
+                        ChangedAt = changedAt
+                    },
+                    transaction);
+
                 const string logSql = @"
                     INSERT INTO DeveloperLogs
                         (RequestId, Actor, Action, EntityType, EntityId, Severity, Details, LoggedAt)
