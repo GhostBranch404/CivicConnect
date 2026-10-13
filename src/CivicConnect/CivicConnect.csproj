@@ -17,4 +17,9 @@
   <InternalsVisibleTo Include="CivicConnect.Tests" />
 </ItemGroup>
 
+<ItemGroup>
+  <Compile Remove="Program.cs" />
+  <Compile Include="..\Program.cs" Link="Program.cs" />
+</ItemGroup>
+
 </Project>

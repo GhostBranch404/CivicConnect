@@ -10,8 +10,8 @@ public class RequestPersistenceTests
     private const int PendingStatusId = 1;
     private const int InProgressStatusId = 2;
 
-    [Fact]
-    public async Task CreateNewRequest_PersistsRequestHistoryAndDeveloperLog_AndIsRetrievable()
+    [DatabaseFact]
+    public async Task CreateNewRequest_PersistsRequestHistoryAndDeveloperLogs()
     {
         var (userId, categoryId) = await DatabaseTestHelper.CreateUserAndCategoryAsync();
         try
@@ -41,8 +41,8 @@ public class RequestPersistenceTests
         }
     }
 
-    [Fact]
-    public async Task CreateNewRequest_WithUnknownRequester_ThrowsAndWritesNothing()
+    [DatabaseFact]
+    public async Task CreateNewRequest_WithUnknownRequester()
     {
         var (userId, categoryId) = await DatabaseTestHelper.CreateUserAndCategoryAsync();
         try
@@ -62,8 +62,8 @@ public class RequestPersistenceTests
         }
     }
 
-    [Fact]
-    public async Task UpdateRequestStatus_WithCurrentVersion_UpdatesStatusIncrementsVersionAndLogs()
+    [DatabaseFact]
+    public async Task UpdateRequestStatus_IncrementsVersionAndLogs()
     {
         var (userId, categoryId) = await DatabaseTestHelper.CreateUserAndCategoryAsync();
         try
@@ -88,8 +88,8 @@ public class RequestPersistenceTests
         }
     }
 
-    [Fact]
-    public async Task UpdateRequestStatus_WithStaleVersion_ThrowsAndLeavesRequestUnchanged()
+    [DatabaseFact]
+    public async Task UpdateRequestStatus_WithStaleVersion()
     {
         var (userId, categoryId) = await DatabaseTestHelper.CreateUserAndCategoryAsync();
         try
@@ -112,7 +112,7 @@ public class RequestPersistenceTests
         }
     }
 
-    [Fact]
+    [DatabaseFact]
     public async Task GetAllRequests_ReturnsPersistedRequest()
     {
         var (userId, categoryId) = await DatabaseTestHelper.CreateUserAndCategoryAsync();
@@ -135,8 +135,8 @@ public class RequestPersistenceTests
         }
     }
 
-    [Fact]
-    public async Task UpdateRequestStatus_WithUnknownStatus_Throws()
+    [DatabaseFact]
+    public async Task UpdateRequestStatus_WithUnknownStatus()
     {
         var (userId, categoryId) = await DatabaseTestHelper.CreateUserAndCategoryAsync();
         try
@@ -158,8 +158,8 @@ public class RequestPersistenceTests
         }
     }
 
-    [Fact]
-    public async Task RecordRequestHistoryAsync_PersistsHistoryRow()
+    [DatabaseFact]
+    public async Task RecordRequestHistory_PersistsHistoryRow()
     {
         var (userId, categoryId) = await DatabaseTestHelper.CreateUserAndCategoryAsync();
         try
@@ -250,5 +250,18 @@ internal static class DatabaseTestHelper
         await connection.ExecuteAsync("DELETE FROM ServiceRequests WHERE RequesterId = @UserId;", parameters);
         await connection.ExecuteAsync("DELETE FROM Users WHERE UserId = @UserId;", parameters);
         await connection.ExecuteAsync("DELETE FROM Categories WHERE CategoryId = @CategoryId;", parameters);
+    }
+}
+
+public sealed class DatabaseFactAttribute : FactAttribute
+{
+    public DatabaseFactAttribute()
+    {
+        if (string.IsNullOrWhiteSpace(
+                Environment.GetEnvironmentVariable("CIVICCONNECT_TEST_CONNECTION")))
+        {
+            Skip = "Set CIVICCONNECT_TEST_CONNECTION to run MySQL integration tests.";
+        }
+
     }
 }

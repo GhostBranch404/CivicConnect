@@ -1,66 +1,74 @@
 using System.Net;
-using System.Threading.Tasks;
+using CivicConnect.Core.Models;
+using CivicConnect.Core.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Hosting;
-using Xunit;
-using CivicConnect.Core.Services;
-using CivicConnect.Tests;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
-namespace CivicConnect.Tests.Integration
+namespace CivicConnect.Tests.Integration;
+
+public class CustomWebApplicationFactory : WebApplicationFactory<IRequestService>
 {
-    
-    public class CustomWebApplicationFactory : WebApplicationFactory<IRequestService>
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        builder.UseEnvironment("Development");
+        builder.UseSetting("ConnectionStrings:DefaultConnection", "Server=localhost;Database=not-used;");
+        builder.ConfigureTestServices(services =>
         {
-            builder.UseSetting("https_port", "443");
-            builder.UseSetting("ConnectionStrings:DefaultConnection", DatabaseTestHelper.ConnectionString);
-            builder.UseEnvironment("Development");
-        }
+            services.RemoveAll<IRequestService>();
+            services.AddSingleton<IRequestService>(new StubRequestService());
+        });
+    }
+}
+
+public class RequestApiIntegrationTests : IClassFixture<CustomWebApplicationFactory>
+{
+    private readonly CustomWebApplicationFactory _factory;
+
+    public RequestApiIntegrationTests(CustomWebApplicationFactory factory)
+    {
+        _factory = factory;
     }
 
-    public class RequestApiIntegrationTests : IClassFixture<CustomWebApplicationFactory>
+    [Fact]
+    public async Task GetRequests_Endpoint_ReturnsOk()
     {
-        private readonly CustomWebApplicationFactory _factory;
+        using var client = _factory.CreateClient();
 
-        public RequestApiIntegrationTests(CustomWebApplicationFactory factory)
-        {
-            _factory = factory;
-        }
+        using var response = await client.GetAsync("/api/request");
 
-        [Fact]
-        public async Task GetRequests_Endpoint_ReturnsSuccessOrUnauthorized()
-        {
-            // Arrange
-            var client = _factory.CreateClient();
-
-            // Act
-            var response = await client.GetAsync("/api/requests");
-
-            // Assert
-            Assert.True(
-                response.IsSuccessStatusCode || 
-                response.StatusCode == HttpStatusCode.Unauthorized || 
-                response.StatusCode == HttpStatusCode.NotFound
-            );
-        }
-
-        [Fact]
-        public async Task GetRequestById_IF_NonExistentId_ReturnsNotFound_Or_InvalidRequest()
-        {
-            // Arrange
-            var client = _factory.CreateClient();
-
-            // Act - Request an ID that does not exist in the database
-            var response = await client.GetAsync("/api/requests/999999");
-
-            // Assert
-            Assert.True(
-                response.StatusCode == HttpStatusCode.NotFound || 
-                response.StatusCode == HttpStatusCode.BadRequest ||
-                response.StatusCode == HttpStatusCode.Unauthorized
-            );
-        }
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
+
+    [Fact]
+    public async Task GetRequestById_WhenRequestDoesNotExist_ReturnsNotFound()
+    {
+        using var client = _factory.CreateClient();
+
+        using var response = await client.GetAsync("/api/request/999999");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+}
+
+internal sealed class StubRequestService : IRequestService
+{
+    public Task<int> RequestSubmission(ServiceRequest request) =>
+        throw new NotSupportedException();
+
+    public Task<ServiceRequest?> GetRequestById(int id) =>
+        Task.FromResult<ServiceRequest?>(null);
+
+    public Task<IEnumerable<ServiceRequest>> GetAllRequests() =>
+        Task.FromResult<IEnumerable<ServiceRequest>>(Array.Empty<ServiceRequest>());
+
+    public Task<bool> UpdateRequestStatus(
+        int id,
+        string newStatus,
+        int changedByUserId,
+        int expectedVersion,
+        string? notes = null) =>
+        throw new NotSupportedException();
 }
