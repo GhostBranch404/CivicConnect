@@ -11,14 +11,12 @@ public class WhiteBoxTestCase
     public async Task UpdateRequestStatus_ResolvedWithoutNotes_RejectsBeforeRepositoryAccess()
     {
         var repository = new Mock<IRequestRepository>(MockBehavior.Strict);
-        var auditHistory = new Mock<IAuditHistoryService>(MockBehavior.Strict);
-        var service = new RequestService(repository.Object, auditHistory.Object);
+        var service = new RequestService(repository.Object);
 
         var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
             service.UpdateRequestStatus(15, "Resolved", 3, 1));
 
         Assert.Equal("Resolution notes are required when resolving a request.", exception.Message);
         repository.VerifyNoOtherCalls();
-        auditHistory.VerifyNoOtherCalls();
     }
 }

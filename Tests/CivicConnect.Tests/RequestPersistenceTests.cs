@@ -7,172 +7,239 @@ namespace CivicConnect.Tests;
 
 public class RequestPersistenceTests
 {
-    private const int PendingStatusId = 1;
-    private const int InProgressStatusId = 2;
-
     [DatabaseFact]
-    public async Task CreateNewRequest_PersistsRequestHistoryAndDeveloperLogs()
+    public async Task ValidRequest_SavesAndRetrievesWithInitialStateHistoryAndDeveloperLog()
     {
-        var (userId, categoryId) = await DatabaseTestHelper.CreateUserAndCategoryAsync();
+        var scope = await DatabaseTestHelper.CreateScopeAsync();
         try
         {
             var repository = new RequestRepository(DatabaseTestHelper.ConnectionString);
-            var request = DatabaseTestHelper.NewRequest(userId, categoryId);
-
+            var request = DatabaseTestHelper.NewRequest(scope.UserId, scope.CategoryId);
             var requestId = await repository.CreateNewRequest(request);
 
             var saved = await repository.GetRequestById(requestId);
             Assert.NotNull(saved);
             Assert.Equal(request.TicketNumber, saved.TicketNumber);
-            Assert.Equal("Persistence test request", saved.Title);
-            Assert.Equal(1, saved.Version);
+            Assert.Equal(scope.UserId, saved.RequesterId);
             Assert.Equal("Pending", saved.RequestStatus);
+            Assert.Equal(1, saved.Version);
 
             Assert.Equal(1, await DatabaseTestHelper.CountAsync(
-                "SELECT COUNT(*) FROM RequestHistory WHERE RequestId = @Id AND ActionType = 'RequestCreated';",
-                new { Id = requestId }));
+                "SELECT COUNT(*) FROM RequestHistory WHERE RequestId = @RequestId AND ActionType = 'RequestCreated';",
+                new { RequestId = requestId }));
             Assert.Equal(1, await DatabaseTestHelper.CountAsync(
-                "SELECT COUNT(*) FROM DeveloperLogs WHERE RequestId = @Id AND Action = 'CREATE';",
-                new { Id = requestId }));
+                "SELECT COUNT(*) FROM DeveloperLogs WHERE RequestId = @RequestId AND Action = 'CREATE';",
+                new { RequestId = requestId }));
         }
         finally
         {
-            await DatabaseTestHelper.CleanupAsync(userId, categoryId);
+            await DatabaseTestHelper.CleanupAsync(scope);
         }
     }
 
     [DatabaseFact]
-    public async Task CreateNewRequest_WithUnknownRequester()
+    public async Task InvalidRequester_FailsWithoutPartialRecords()
     {
-        var (userId, categoryId) = await DatabaseTestHelper.CreateUserAndCategoryAsync();
+        var scope = await DatabaseTestHelper.CreateScopeAsync();
         try
         {
             var repository = new RequestRepository(DatabaseTestHelper.ConnectionString);
-            var request = DatabaseTestHelper.NewRequest(int.MaxValue, categoryId);
+            var request = DatabaseTestHelper.NewRequest(int.MaxValue, scope.CategoryId);
 
             await Assert.ThrowsAsync<MySqlException>(() => repository.CreateNewRequest(request));
 
             Assert.Equal(0, await DatabaseTestHelper.CountAsync(
-                "SELECT COUNT(*) FROM ServiceRequests WHERE TicketNumber = @Ticket;",
-                new { Ticket = request.TicketNumber }));
+                "SELECT COUNT(*) FROM ServiceRequests WHERE TicketNumber = @TicketNumber;",
+                new { request.TicketNumber }));
         }
         finally
         {
-            await DatabaseTestHelper.CleanupAsync(userId, categoryId);
+            await DatabaseTestHelper.CleanupAsync(scope);
         }
     }
 
     [DatabaseFact]
-    public async Task UpdateRequestStatus_IncrementsVersionAndLogs()
+    public async Task DuplicateTicket_IsRejectedWithoutPartialRecords()
     {
-        var (userId, categoryId) = await DatabaseTestHelper.CreateUserAndCategoryAsync();
+        var scope = await DatabaseTestHelper.CreateScopeAsync();
         try
         {
             var repository = new RequestRepository(DatabaseTestHelper.ConnectionString);
-            var requestId = await repository.CreateNewRequest(DatabaseTestHelper.NewRequest(userId, categoryId));
+            var ticketNumber = $"CC-DUP-{scope.Suffix[..8].ToUpperInvariant()}";
+            var originalId = await repository.CreateNewRequest(
+                DatabaseTestHelper.NewRequest(scope.UserId, scope.CategoryId, ticketNumber));
 
-            var updated = await repository.UpdateRequestStatus(requestId, "In Progress", userId, 1);
+            await Assert.ThrowsAsync<MySqlException>(() => repository.CreateNewRequest(
+                DatabaseTestHelper.NewRequest(scope.UserId, scope.CategoryId, ticketNumber)));
 
-            Assert.True(updated);
+            Assert.Equal(1, await DatabaseTestHelper.CountAsync(
+                "SELECT COUNT(*) FROM ServiceRequests WHERE TicketNumber = @TicketNumber;",
+                new { TicketNumber = ticketNumber }));
+            Assert.Equal(1, await DatabaseTestHelper.CountAsync(
+                "SELECT COUNT(*) FROM RequestHistory WHERE RequestId = @RequestId AND ActionType = 'RequestCreated';",
+                new { RequestId = originalId }));
+            Assert.Equal(1, await DatabaseTestHelper.CountAsync(
+                "SELECT COUNT(*) FROM DeveloperLogs WHERE RequestId = @RequestId AND Action = 'CREATE';",
+                new { RequestId = originalId }));
+        }
+        finally
+        {
+            await DatabaseTestHelper.CleanupAsync(scope);
+        }
+    }
+
+    [DatabaseFact]
+    public async Task ResolveRequest_SavesStatusVersionNotesHistoryAndDeveloperLog()
+    {
+        var scope = await DatabaseTestHelper.CreateScopeAsync();
+        try
+        {
+            var repository = new RequestRepository(DatabaseTestHelper.ConnectionString);
+            var requestId = await repository.CreateNewRequest(
+                DatabaseTestHelper.NewRequest(scope.UserId, scope.CategoryId));
+            const string notes = "Issue fixed and verified by staff.";
+
+            Assert.True(await repository.UpdateRequestStatus(
+                requestId, "Resolved", scope.UserId, 1, notes));
+
             var saved = await repository.GetRequestById(requestId);
             Assert.NotNull(saved);
-            Assert.Equal(InProgressStatusId, saved.StatusId);
+            Assert.Equal(3, saved.StatusId);
+            Assert.Equal("Resolved", saved.RequestStatus);
             Assert.Equal(2, saved.Version);
             Assert.Equal(1, await DatabaseTestHelper.CountAsync(
-                "SELECT COUNT(*) FROM DeveloperLogs WHERE RequestId = @Id AND Action = 'UPDATE_STATUS';",
-                new { Id = requestId }));
+                """
+                SELECT COUNT(*) FROM RequestHistory
+                WHERE RequestId = @RequestId AND ActionType = 'StatusChanged'
+                  AND NewStatusId = 3 AND Notes = @Notes;
+                """,
+                new { RequestId = requestId, Notes = notes }));
+            Assert.Equal(1, await DatabaseTestHelper.CountAsync(
+                "SELECT COUNT(*) FROM DeveloperLogs WHERE RequestId = @RequestId AND Action = 'UPDATE_STATUS';",
+                new { RequestId = requestId }));
         }
         finally
         {
-            await DatabaseTestHelper.CleanupAsync(userId, categoryId);
+            await DatabaseTestHelper.CleanupAsync(scope);
         }
     }
 
     [DatabaseFact]
-    public async Task UpdateRequestStatus_WithStaleVersion()
+    public async Task StatusUpdate_RollsBackWhenRelatedWriteFails()
     {
-        var (userId, categoryId) = await DatabaseTestHelper.CreateUserAndCategoryAsync();
+        var scope = await DatabaseTestHelper.CreateScopeAsync();
         try
         {
             var repository = new RequestRepository(DatabaseTestHelper.ConnectionString);
-            var requestId = await repository.CreateNewRequest(DatabaseTestHelper.NewRequest(userId, categoryId));
-            await repository.UpdateRequestStatus(requestId, "In Progress", userId, 1);
+            var requestId = await repository.CreateNewRequest(
+                DatabaseTestHelper.NewRequest(scope.UserId, scope.CategoryId));
 
-            await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                repository.UpdateRequestStatus(requestId, "Resolved", userId, 1, "Stale update"));
+            await Assert.ThrowsAsync<MySqlException>(() => repository.UpdateRequestStatus(
+                requestId, "In Progress", int.MaxValue, 1, "Force failure"));
 
             var saved = await repository.GetRequestById(requestId);
             Assert.NotNull(saved);
-            Assert.Equal(InProgressStatusId, saved.StatusId);
-            Assert.Equal(2, saved.Version);
+            Assert.Equal(1, saved.StatusId);
+            Assert.Equal("Pending", saved.RequestStatus);
+            Assert.Equal(1, saved.Version);
+            Assert.Equal(0, await DatabaseTestHelper.CountAsync(
+                "SELECT COUNT(*) FROM RequestHistory WHERE RequestId = @RequestId AND ActionType = 'StatusChanged';",
+                new { RequestId = requestId }));
+            Assert.Equal(0, await DatabaseTestHelper.CountAsync(
+                "SELECT COUNT(*) FROM DeveloperLogs WHERE RequestId = @RequestId AND Action = 'UPDATE_STATUS';",
+                new { RequestId = requestId }));
         }
         finally
         {
-            await DatabaseTestHelper.CleanupAsync(userId, categoryId);
+            await DatabaseTestHelper.CleanupAsync(scope);
         }
     }
 
     [DatabaseFact]
     public async Task GetAllRequests_ReturnsPersistedRequest()
     {
-        var (userId, categoryId) = await DatabaseTestHelper.CreateUserAndCategoryAsync();
+        var scope = await DatabaseTestHelper.CreateScopeAsync();
         try
         {
             var repository = new RequestRepository(DatabaseTestHelper.ConnectionString);
-            var requestId = await repository.CreateNewRequest(DatabaseTestHelper.NewRequest(userId, categoryId));
+            var requestId = await repository.CreateNewRequest(
+                DatabaseTestHelper.NewRequest(scope.UserId, scope.CategoryId));
 
-            var requests = (await repository.GetAllRequests()).ToList();
+            var requests = await repository.GetAllRequests();
 
-            var saved = Assert.Single(requests, r => r.RequestId == requestId);
-            Assert.Equal("Persistence test request", saved.Title);
-            Assert.Equal(userId, saved.RequesterId);
-            Assert.Equal(categoryId, saved.CategoryId);
-            Assert.Equal("Pending", saved.RequestStatus);
+            Assert.Contains(requests, request => request.RequestId == requestId);
         }
         finally
         {
-            await DatabaseTestHelper.CleanupAsync(userId, categoryId);
+            await DatabaseTestHelper.CleanupAsync(scope);
         }
     }
 
     [DatabaseFact]
-    public async Task UpdateRequestStatus_WithUnknownStatus()
+    public async Task UpdateRequestStatus_WithUnknownStatus_ThrowsAndPreservesRequest()
     {
-        var (userId, categoryId) = await DatabaseTestHelper.CreateUserAndCategoryAsync();
+        var scope = await DatabaseTestHelper.CreateScopeAsync();
         try
         {
             var repository = new RequestRepository(DatabaseTestHelper.ConnectionString);
-            var requestId = await repository.CreateNewRequest(DatabaseTestHelper.NewRequest(userId, categoryId));
+            var requestId = await repository.CreateNewRequest(
+                DatabaseTestHelper.NewRequest(scope.UserId, scope.CategoryId));
 
             await Assert.ThrowsAsync<ArgumentException>(() =>
-                repository.UpdateRequestStatus(requestId, "No Such Status", userId, 1));
+                repository.UpdateRequestStatus(requestId, "No Such Status", scope.UserId, 1));
 
             var saved = await repository.GetRequestById(requestId);
             Assert.NotNull(saved);
-            Assert.Equal(PendingStatusId, saved.StatusId);
+            Assert.Equal(1, saved.StatusId);
             Assert.Equal(1, saved.Version);
         }
         finally
         {
-            await DatabaseTestHelper.CleanupAsync(userId, categoryId);
+            await DatabaseTestHelper.CleanupAsync(scope);
+        }
+    }
+
+    [DatabaseFact]
+    public async Task UpdateRequestStatus_WithStaleVersion_ThrowsAndPreservesLatestState()
+    {
+        var scope = await DatabaseTestHelper.CreateScopeAsync();
+        try
+        {
+            var repository = new RequestRepository(DatabaseTestHelper.ConnectionString);
+            var requestId = await repository.CreateNewRequest(
+                DatabaseTestHelper.NewRequest(scope.UserId, scope.CategoryId));
+            await repository.UpdateRequestStatus(requestId, "In Progress", scope.UserId, 1);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                repository.UpdateRequestStatus(requestId, "Resolved", scope.UserId, 1, "Stale update"));
+
+            var saved = await repository.GetRequestById(requestId);
+            Assert.NotNull(saved);
+            Assert.Equal(2, saved.StatusId);
+            Assert.Equal(2, saved.Version);
+        }
+        finally
+        {
+            await DatabaseTestHelper.CleanupAsync(scope);
         }
     }
 
     [DatabaseFact]
     public async Task RecordRequestHistory_PersistsHistoryRow()
     {
-        var (userId, categoryId) = await DatabaseTestHelper.CreateUserAndCategoryAsync();
+        var scope = await DatabaseTestHelper.CreateScopeAsync();
         try
         {
             var repository = new RequestRepository(DatabaseTestHelper.ConnectionString);
-            var requestId = await repository.CreateNewRequest(DatabaseTestHelper.NewRequest(userId, categoryId));
+            var requestId = await repository.CreateNewRequest(
+                DatabaseTestHelper.NewRequest(scope.UserId, scope.CategoryId));
 
             await repository.RecordRequestHistoryAsync(new RequestHistory
             {
                 RequestId = requestId,
-                ChangedByUserId = userId,
-                OldStatusId = PendingStatusId,
-                NewStatusId = InProgressStatusId,
+                ChangedByUserId = scope.UserId,
+                OldStatusId = 1,
+                NewStatusId = 2,
                 ActionType = "StatusChanged",
                 Notes = "Persistence test history",
                 ChangedAt = DateTime.UtcNow
@@ -181,15 +248,14 @@ public class RequestPersistenceTests
             Assert.Equal(1, await DatabaseTestHelper.CountAsync(
                 """
                 SELECT COUNT(*) FROM RequestHistory
-                WHERE RequestId = @Id AND ActionType = 'StatusChanged'
-                  AND OldStatusId = @OldStatusId AND NewStatusId = @NewStatusId
-                  AND Notes = 'Persistence test history';
+                WHERE RequestId = @RequestId AND ActionType = 'StatusChanged'
+                  AND OldStatusId = 1 AND NewStatusId = 2 AND Notes = 'Persistence test history';
                 """,
-                new { Id = requestId, OldStatusId = PendingStatusId, NewStatusId = InProgressStatusId }));
+                new { RequestId = requestId }));
         }
         finally
         {
-            await DatabaseTestHelper.CleanupAsync(userId, categoryId);
+            await DatabaseTestHelper.CleanupAsync(scope);
         }
     }
 }
@@ -199,69 +265,73 @@ internal static class DatabaseTestHelper
     public static string ConnectionString =>
         Environment.GetEnvironmentVariable("CIVICCONNECT_TEST_CONNECTION")
         ?? throw new InvalidOperationException(
-            "Set the CIVICCONNECT_TEST_CONNECTION environment variable to a test MySQL connection string before running database tests.");
+            "Set CIVICCONNECT_TEST_CONNECTION to an isolated MySQL test database connection string.");
 
-    public static async Task<(int UserId, int CategoryId)> CreateUserAndCategoryAsync()
+    public static async Task<TestScope> CreateScopeAsync()
     {
-        var suffix = Guid.NewGuid().ToString("N")[..12];
+        var suffix = Guid.NewGuid().ToString("N");
         await using var connection = new MySqlConnection(ConnectionString);
         await connection.OpenAsync();
 
         await connection.ExecuteAsync(
             "INSERT INTO Users (FullName, Email, Role) VALUES (@FullName, @Email, 'Citizen');",
-            new { FullName = $"Test User {suffix}", Email = $"test-{suffix}@example.com" });
+            new { FullName = $"DB Test User {suffix[..8]}", Email = $"dbtest-{suffix}@example.com" });
         var userId = await connection.ExecuteScalarAsync<int>("SELECT LAST_INSERT_ID();");
 
         await connection.ExecuteAsync(
-            "INSERT INTO Categories (CategoryName) VALUES (@Name);",
-            new { Name = $"Test Category {suffix}" });
+            "INSERT INTO Categories (CategoryName) VALUES (@CategoryName);",
+            new { CategoryName = $"DB Test Category {suffix[..8]}" });
         var categoryId = await connection.ExecuteScalarAsync<int>("SELECT LAST_INSERT_ID();");
 
-        return (userId, categoryId);
+        return new TestScope(userId, categoryId, suffix);
     }
 
-    public static ServiceRequest NewRequest(int requesterId, int categoryId) => new()
+    public static ServiceRequest NewRequest(int requesterId, int categoryId, string? ticketNumber = null)
     {
-        RequesterId = requesterId,
-        CategoryId = categoryId,
-        StatusId = 1,
-        Title = "Persistence test request",
-        Description = "Created by a database persistence test.",
-        Location = "Test location"
-    };
+        var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        return new ServiceRequest
+        {
+            RequesterId = requesterId,
+            CategoryId = categoryId,
+            StatusId = 1,
+            TicketNumber = ticketNumber ?? $"CC-DB-{suffix}",
+            Title = $"Persistence Request {suffix}",
+            Description = "Created by database persistence verification.",
+            Location = "Test location"
+        };
+    }
 
     public static async Task<int> CountAsync(string sql, object parameters)
     {
         await using var connection = new MySqlConnection(ConnectionString);
+        await connection.OpenAsync();
         return await connection.ExecuteScalarAsync<int>(sql, parameters);
     }
 
-    public static async Task CleanupAsync(int userId, int categoryId)
+    public static async Task CleanupAsync(TestScope scope)
     {
         await using var connection = new MySqlConnection(ConnectionString);
-        var parameters = new { UserId = userId, CategoryId = categoryId };
+        await connection.OpenAsync();
 
         await connection.ExecuteAsync(
             "DELETE FROM DeveloperLogs WHERE RequestId IN (SELECT RequestId FROM ServiceRequests WHERE RequesterId = @UserId);",
-            parameters);
+            new { scope.UserId });
         await connection.ExecuteAsync(
             "DELETE FROM RequestHistory WHERE RequestId IN (SELECT RequestId FROM ServiceRequests WHERE RequesterId = @UserId);",
-            parameters);
-        await connection.ExecuteAsync("DELETE FROM ServiceRequests WHERE RequesterId = @UserId;", parameters);
-        await connection.ExecuteAsync("DELETE FROM Users WHERE UserId = @UserId;", parameters);
-        await connection.ExecuteAsync("DELETE FROM Categories WHERE CategoryId = @CategoryId;", parameters);
+            new { scope.UserId });
+        await connection.ExecuteAsync("DELETE FROM ServiceRequests WHERE RequesterId = @UserId;", new { scope.UserId });
+        await connection.ExecuteAsync("DELETE FROM Users WHERE UserId = @UserId;", new { scope.UserId });
+        await connection.ExecuteAsync("DELETE FROM Categories WHERE CategoryId = @CategoryId;", new { scope.CategoryId });
     }
+
+    internal readonly record struct TestScope(int UserId, int CategoryId, string Suffix);
 }
 
 public sealed class DatabaseFactAttribute : FactAttribute
 {
     public DatabaseFactAttribute()
     {
-        if (string.IsNullOrWhiteSpace(
-                Environment.GetEnvironmentVariable("CIVICCONNECT_TEST_CONNECTION")))
-        {
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("CIVICCONNECT_TEST_CONNECTION")))
             Skip = "Set CIVICCONNECT_TEST_CONNECTION to run MySQL integration tests.";
-        }
-
     }
 }
