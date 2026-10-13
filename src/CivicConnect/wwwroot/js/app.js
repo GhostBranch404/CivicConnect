@@ -27,6 +27,8 @@
     { id: 4, name: "Thabo Mokoena", email: "thabo@civicconnect.local", role: "Staff" },
     { id: 3, name: "Admin User", email: "admin@civicconnect.local", role: "Manager" }
   ];
+  // Accounts created on the Register page (kept in the browser until a users endpoint exists)
+  try { USERS.push(...(JSON.parse(localStorage.getItem("cc.registered")) || [])); } catch { /* ignore */ }
   const STAFF = USERS.filter(u => u.role === "Staff");
   const userName = id => (USERS.find(u => u.id === id) || {}).name || `User #${id}`;
 
@@ -206,6 +208,7 @@
     users: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-3.5 3-5.5 7-5.5s7 2 7 5.5M16 4.5a3.5 3.5 0 010 7M22 20c0-2.6-1.6-4.4-4-5.1"/></svg>`,
     report: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>`,
     chart: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>`,
+    mail: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>`,
     lock: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>`,
     search: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>`,
     back: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>`,
@@ -290,8 +293,8 @@
       <h1>CivicConnect</h1>
       <p class="tag">Community Service Request Management</p>
       <form id="loginForm" autocomplete="on">
-        <div class="input-icon">${I.user}<input type="text" id="email" placeholder="Username or Email" required value="john@civicconnect.local"></div>
-        <div class="input-icon">${I.lock}<input type="password" id="pw" placeholder="Password" value="demo"></div>
+        <div class="input-icon">${I.user}<input type="text" id="email" placeholder="Username or Email" required></div>
+        <div class="input-icon">${I.lock}<input type="password" id="pw" placeholder="Password"></div>
         <div>
           <div class="field-label" style="margin-bottom:6px">Sign in as (demo)</div>
           <div class="role-pick">
@@ -301,18 +304,52 @@
         <button class="btn btn-primary btn-block" type="submit">Login</button>
       </form>
       <a href="#/login" class="forgot" id="forgot">Forgot password?</a>
+      <p class="switch-auth">Don't have an account? <a href="#/register">Register</a></p>
     </div></div>`;
-    const emails = { Requester: "john@civicconnect.local", Staff: "sarah@civicconnect.local", Manager: "admin@civicconnect.local" };
-    document.querySelectorAll("input[name=role]").forEach(r => r.onchange = () => ($("#email").value = emails[r.value]));
     $("#forgot").onclick = e => { e.preventDefault(); toast("Password reset isn't available yet — contact your administrator."); };
     $("#loginForm").onsubmit = e => {
       e.preventDefault();
       // TODO(API): replace with a real auth endpoint. For now the selected role picks a demo user.
       const role = $("input[name=role]:checked").value;
       const email = $("#email").value.trim().toLowerCase();
-      const user = USERS.find(u => u.email === email && u.role === role) || USERS.find(u => u.role === role);
+      const user = USERS.find(u => (u.email || "").toLowerCase() === email && u.role === role) || USERS.find(u => u.role === role);
       session.user = user; store.set("user", user);
       location.hash = HOME[role];
+    };
+  }
+
+  // Register (public sign-up creates a Requester; staff and managers are added by an admin)
+  function viewRegister() {
+    $("#app").innerHTML = `<div class="login-wrap"><div class="login-card">
+      <div class="logo">${I.logo}</div>
+      <h1>Create an account</h1>
+      <p class="tag">Register to submit and track service requests</p>
+      <form id="regForm" novalidate>
+        <div id="regErr"></div>
+        <div class="input-icon">${I.user}<input type="text" id="rname" placeholder="Full name" autocomplete="name"></div>
+        <div class="input-icon">${I.mail}<input type="text" id="remail" placeholder="Email" autocomplete="email"></div>
+        <div class="input-icon">${I.lock}<input type="password" id="rpw" placeholder="Password (min. 8 characters)" autocomplete="new-password"></div>
+        <div class="input-icon">${I.lock}<input type="password" id="rpw2" placeholder="Confirm password" autocomplete="new-password"></div>
+        <button class="btn btn-primary btn-block" type="submit">Register</button>
+      </form>
+      <p class="switch-auth">Already have an account? <a href="#/login">Log in</a></p>
+    </div></div>`;
+    $("#regForm").onsubmit = e => {
+      e.preventDefault();
+      const name = $("#rname").value.trim(), email = $("#remail").value.trim().toLowerCase(), pw = $("#rpw").value, pw2 = $("#rpw2").value;
+      const err = !name ? "Please enter your full name." :
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? "Please enter a valid email address." :
+        USERS.some(u => (u.email || "").toLowerCase() === email) ? "An account with this email already exists." :
+        pw.length < 8 ? "Password must be at least 8 characters." :
+        pw !== pw2 ? "Passwords don't match." : "";
+      if (err) { $("#regErr").innerHTML = `<div class="error-msg">${esc(err)}</div>`; return; }
+      // TODO(API): POST to a register endpoint (with a hashed password) once auth exists.
+      const user = { id: Math.max(99, ...USERS.map(u => u.id)) + 1, name, email, role: "Requester" };
+      USERS.push(user);
+      const saved = store.get("registered", []); saved.push(user); store.set("registered", saved);
+      session.user = user; store.set("user", user);
+      toast(`Welcome, ${name.split(" ")[0]}! Your account has been created.`);
+      location.hash = HOME.Requester;
     };
   }
 
@@ -531,6 +568,7 @@
 
   async function route() {
     const [, page = "", param] = location.hash.split("/");
+    if (page === "register") return session.user ? (location.hash = HOME[session.user.role]) : viewRegister();
     if (!session.user || page === "login" || !page) {
       if (session.user && !page) { location.hash = HOME[session.user.role]; return; }
       if (!session.user) return viewLogin();
