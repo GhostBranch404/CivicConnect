@@ -4,18 +4,18 @@
 
 CivicConnect is a controlled digital platform for submitting, tracking, assigning and resolving community service requests with engineering traceability.
 
-## Current M2 baseline
+## Current M3 working baseline
 
 - C# / ASP.NET Core Web API
 - 3-tier layered monolith
-- MySQL
+- MySQL hosted through Aiven
 - Dapper + MySqlConnector
 - Controller → Service → Repository → Database
 - Request history and database-backed developer/application logging
 
 ## Project status
 
-CivicConnect is currently in Milestone 2 development.
+CivicConnect is currently in Milestone 3 development; implementation continues beyond this milestone toward the final working application.
 
 Implemented or in progress:
 - Service request submission
@@ -31,6 +31,13 @@ Still in progress:
 - Management dashboard
 - Full verification and testing
 - Production hosting and deployment
+
+## Database hosting
+
+- Provider: Aiven for MySQL.
+- Database engine remains MySQL; the provider change does not change the relational schema or Dapper/MySqlConnector approach.
+- Store connection strings and credentials in environment variables or deployment secrets. Never commit database credentials to the repository.
+- Confirm connection access, migrations, backup/restore, plan limits and costs before production use.
 
 ## User roles
 

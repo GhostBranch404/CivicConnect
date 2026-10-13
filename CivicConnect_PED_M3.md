@@ -1,4 +1,4 @@
-Milestone 2: Project Engineering Document (PED)
+Milestone 3: Project Engineering Document (PED)
 
 CivicConnect - Community Service Request Management Platform  
   
@@ -11,7 +11,7 @@ Cornelius Greeff 601357 \| Aiden Moses 603067 \| Keegan Stroud 601609
 
 ## Table of Contents
 
-- [Milestone 2 Review of the M1 Baseline](#milestone-2-review-of-the-m1-baseline)
+- [Milestone 3 Review of the M1 Baseline](#milestone-2-review-of-the-m1-baseline)
 - [Project Overview](#project-overview)
 - [Business Need](#business-need)
 - [Stakeholder Analysis](#stakeholder-analysis)
@@ -52,7 +52,7 @@ Cornelius Greeff 601357 \| Aiden Moses 603067 \| Keegan Stroud 601609
 - [References](#references)
 
 
-# Milestone 2 Review of the M1 Baseline
+# Milestone 3 Review of the M1 Baseline
 
 The approved Milestone 1 baseline was reviewed before the addition of
 the Milestone 2 architecture, technology and design decisions. The
@@ -1192,23 +1192,34 @@ assumptions from hardening into premature engineering commitments.
 
 - JavaScript
 
-- MySQL (via Oracle Services)
+- MySQL (hosted through Aiven)
 
-**Why We're Using MySQL through Oracle Services**
+**Database Hosting Decision: Aiven for MySQL**
 
-We chose to run the database through Oracle’s MySQL services because it
-is cost-effective and reliable for a project of this size. Secure
-development. CivicConnect will manage MySQL. MySQL is source so it can
-be downloaded, used and modified without licensing fees. This keeps
-costs down for a student team. The source is from Erickson, 2024. It is
-also accessible for teams. It has a learning curve, for anyone who
-hasn't used it before.
+CivicConnect continues to use MySQL as its relational database engine, but the hosted database provider has changed from Oracle's MySQL service to Aiven for MySQL. This is a hosting-provider change rather than a change to the database model. The application continues to use MySQL-compatible SQL through Dapper and MySqlConnector, so the existing relational schema and migration scripts remain the intended baseline, subject to connection and migration verification.
 
-Setup is quick, with the server able to be deployed and running within
-minutes. Oracle's MySQL services are also built to handle a range of
-network traffic and user interaction patterns, which suits our plans to
-scale CivicConnect toward more complex scenarios later without a major
-hit to performance (Jia, 2026).
+Aiven was selected because it offers managed MySQL hosting with a straightforward connection workflow and provider-managed operational features. This reduces the amount of database-server setup and maintenance the student team must perform directly, leaving more time for application development and testing. The free tier can support early development, but it has limited resources and should not be treated as evidence of production-grade availability. The team must verify the selected plan's connection limits, backup and restore capabilities, availability, security configuration and cost before production use.
+
+Connection strings and credentials must be stored in environment configuration or deployment secrets and must never be committed to GitHub.
+
+**Hosted MySQL provider comparison**
+
+| Provider | Benefits for CivicConnect | Drawbacks / considerations |
+|---|---|---|
+| **Aiven for MySQL (selected)** | Managed MySQL; simple connection details; reduced server administration; development-friendly entry point. | Free-tier resources and availability are limited; connection limits and inactivity behaviour may affect testing; paid plans add cost. |
+| **Amazon RDS for MySQL** | Mature managed database service; configurable capacity, backups and operational options; useful if the application is hosted on AWS. | More AWS configuration and billing options to understand; costs depend on instance, storage, backups and networking. |
+| **DigitalOcean Managed MySQL** | Managed database service with a relatively straightforward cloud setup and available cluster options. | Paid plans may be less suitable for a student budget; high availability and larger configurations increase cost. |
+
+This is a practical project-fit comparison, not a claim that one provider is universally best. Aiven is the current choice for accessible hosted MySQL and reduced administration. Current plan features, costs and limitations must be checked before deployment.
+
+**Relational and non-relational database comparison**
+
+| Database type | Benefits | Drawbacks | Fit for CivicConnect |
+|---|---|---|---|
+| **Relational (MySQL)** | Structured tables; defined relationships and foreign keys; transactions; consistent data; suitable for joins and reporting. | Schema changes require planning; complex data structures may need additional tables and joins; horizontal scaling can require extra design. | **Best fit for the current system:** requests, users, categories, assignments, statuses, comments and history have clear relationships and need data integrity. |
+| **Non-relational (e.g. document database)** | Flexible document structures; useful for rapidly changing or semi-structured data; some systems support straightforward horizontal scaling. | Relationship enforcement and multi-record consistency may require more application logic; joins and relational reporting may be less natural; migration and query patterns differ. | Could suit a future feature with highly variable document data, but would add complexity without a clear current requirement. |
+
+The team therefore retains MySQL. The decision is based on CivicConnect's structured entities, foreign-key relationships, transaction requirements and audit/history records—not on the hosting provider. A change to a non-relational database should only be considered if future requirements justify the added design and migration effort.
 
 **Communication and Task Operations**
 
@@ -1338,6 +1349,7 @@ Intelligence tools to be used in the following project:
 
 | **Version** | **Date**   | **Change**                                                                                       | **Author(s)** | **Status** |
 |-------------|------------|--------------------------------------------------------------------------------------------------|---------------|------------|
+| 3.0 | 13/10/2026 | Milestone 3 working draft; changed hosted MySQL provider from Oracle to Aiven; added provider and relational/non-relational comparisons | Team | Working draft |
 | **0.1**     | 01/09/2026 | Initial PED created with project overview and early planning                                     | Team          | Draft      |
 | **0.2**     | 03/09/2026 | Added stakeholder analysis, project scope and initial requirements                               | Team          | Draft      |
 | **0.3**     | 07/09/2026 | Added project constraints, Risk Register, RTM and team governance                                | Team          | Review     |
