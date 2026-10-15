@@ -11,7 +11,8 @@ namespace CivicConnect.Core.Services
             {
                 "Pending",
                 "In Progress",
-                "Resolved"
+                "Resolved",
+                "Rejected"
             };
 
         public RequestService(IRequestRepository repository)
@@ -61,7 +62,7 @@ namespace CivicConnect.Core.Services
             if (!ValidStatuses.Contains(newStatus))
             {
                 throw new ArgumentException(
-                    $"Invalid status value: '{newStatus}'. Allowed values: Pending, In Progress, Resolved.");
+                    $"Invalid status value: '{newStatus}'. Allowed values: Pending, In Progress, Resolved, Rejected.");
             }
 
             if (changedByUserId <= 0)
@@ -74,6 +75,12 @@ namespace CivicConnect.Core.Services
                 string.IsNullOrWhiteSpace(notes))
             {
                 throw new ArgumentException("Resolution notes are required when resolving a request.");
+            }
+
+            if (newStatus.Equals("Rejected", StringComparison.OrdinalIgnoreCase) &&
+                string.IsNullOrWhiteSpace(notes))
+            {
+                throw new ArgumentException("A reason is required when rejecting a request.");
             }
             return await _repository.UpdateRequestStatus(
                 id,
