@@ -1,14 +1,7 @@
 using CivicConnect.Core.Data;
 using CivicConnect.Core.Services;
 
-// Anchor the content root to the folder the app was published to, so wwwroot (the UI)
-// is found no matter which working directory Azure App Service starts the process from.
-var builder = WebApplication.CreateBuilder(new WebApplicationOptions
-{
-    Args = args,
-    ContentRootPath = AppContext.BaseDirectory,
-    WebRootPath = Path.Combine(AppContext.BaseDirectory, "wwwroot")
-});
+var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -21,6 +14,9 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddScoped<IRequestRepository>(_ => new RequestRepository(connectionString));
 builder.Services.AddScoped<IAuditHistoryService, AuditHistoryService>();
 builder.Services.AddScoped<IRequestService, RequestService>();
+builder.Services.AddScoped<IUserRepository>(_ => new UserRepository(connectionString));
+builder.Services.AddScoped<IRequestDetailsRepository>(_ => new RequestDetailsRepository(connectionString));
+builder.Services.AddScoped<IUserService, UserService>();
 
 var app = builder.Build();
 

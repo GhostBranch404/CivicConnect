@@ -1,200 +1,99 @@
 /* CivicConnect front end
- * Talks to the ASP.NET API at /api/requests (GET, GET {id}, POST, PATCH {id}/status).
- * If the API (or its database) can't be reached, it switches to demo mode with sample data,
- * so the screens can still be reviewed.
- *
- * Not in the API yet (kept in the browser for now): sign-in, users, priority, assignment,
- * comments and reading request history. See the TODO notes near the `extras` store.
+ * Everything here reads and writes through the ASP.NET API, which stores it in MySQL:
+ *   POST /api/auth/register, POST /api/auth/login        accounts (Users)
+ *   GET  /api/users[?role=Staff]                         user lists
+ *   GET  /api/categories, GET /api/statuses              reference data
+ *   GET/POST /api/requests, GET /api/requests/{id}       service requests
+ *   PATCH /api/requests/{id}/status                      status changes (+ RequestHistory)
+ *   GET  /api/requests/{id}/history                      RequestHistory
+ *   GET/POST /api/requests/{id}/comments                 RequestComments
+ *   GET  /api/assignments, PUT /api/requests/{id}/assignment   Assignments
+ * The only thing kept in the browser is who is signed in.
  */
 (() => {
   "use strict";
 
-  // ---------- Reference data (mirrors 001_initial_schema.sql seeds) ----------
-  const CATEGORIES = [
-    { id: 1, name: "Maintenance" }, { id: 2, name: "IT Support" }, { id: 3, name: "Security" },
-    { id: 4, name: "Facilities" }, { id: 5, name: "Other" }
-  ];
-  const STATUSES = [
-    { id: 1, name: "Pending" }, { id: 2, name: "In Progress" }, { id: 3, name: "Resolved" }
-  ];
-  const PRIORITIES = ["Low", "Medium", "High"];
   const OVERDUE_DAYS = 7; // open requests older than this count as overdue on the management view
 
-  // Demo users. Replace with the Users table once an auth/users endpoint exists.
-  const USERS = [
-    { id: 1, name: "John Doe", email: "john@civicconnect.local", role: "Requester" },
-    { id: 2, name: "Sarah Smith", email: "sarah@civicconnect.local", role: "Staff" },
-    { id: 4, name: "Thabo Mokoena", email: "thabo@civicconnect.local", role: "Staff" },
-    { id: 3, name: "Admin User", email: "admin@civicconnect.local", role: "Manager" }
-  ];
-  // Accounts created on the Register page (kept in the browser until a users endpoint exists)
-  try { USERS.push(...(JSON.parse(localStorage.getItem("cc.registered")) || [])); } catch { /* ignore */ }
-  const STAFF = USERS.filter(u => u.role === "Staff");
-  const userName = id => (USERS.find(u => u.id === id) || {}).name || `User #${id}`;
-
-  // ---------- Storage helpers ----------
-  const store = {
-    get(k, d) { try { const v = localStorage.getItem("cc." + k); return v ? JSON.parse(v) : d; } catch { return d; } },
-    set(k, v) { try { localStorage.setItem("cc." + k, JSON.stringify(v)); } catch { /* ignore */ } }
-  };
-
-  // TODO(API): priority, assignment, comments and history have tables in the schema
-  // (Assignments, RequestComments, RequestHistory) but no endpoints yet. Until then they
-  // are kept per browser here, keyed by RequestId.
-  const extras = {
-    all() { return store.get("extras", {}); },
-    of(id) { return this.all()[id] || { priority: "Medium", assignedTo: null, comments: [], history: [] }; },
-    save(id, data) { const a = this.all(); a[id] = data; store.set("extras", a); }
-  };
-
-  // ---------- API layer with demo fallback ----------
-  const api = {
-    mode: "unknown", // "live" | "demo"
-    async probe() {
-      try {
-        const r = await fetch("/api/requests", { headers: { Accept: "application/json" } });
-        if (!r.ok) throw new Error();
-        this.mode = "live";
-        this.cache = (await r.json()).map(normalise);
-      } catch {
-        this.mode = "demo";
-        seedDemo();
-      }
-    },
-    async list() {
-      if (this.mode === "live") {
-        const r = await fetch("/api/requests");
-        if (!r.ok) throw new Error("Could not load requests.");
-        return (this.cache = (await r.json()).map(normalise));
-      }
-      return store.get("demoRequests", []).map(normalise);
-    },
-    async get(id) {
-      if (this.mode === "live") {
-        const r = await fetch(`/api/requests/${id}`);
-        if (r.status === 404) return null;
-        if (!r.ok) throw new Error(await errText(r));
-        return normalise(await r.json());
-      }
-      return (await this.list()).find(x => x.requestId === id) || null;
-    },
-    async create(body) {
-      if (this.mode === "live") {
-        const r = await fetch("/api/requests", {
-          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
-        });
-        if (!r.ok) throw new Error(await errText(r));
-        const d = await r.json();
-        return d.requestId ?? d.RequestId;
-      }
-      // Mirror RequestService.RequestSubmission validation
-      for (const [k, m] of [["title", "A title is required."], ["description", "A description is required."], ["location", "A location is required."]])
-        if (!String(body[k] || "").trim()) throw new Error(m);
-      if (!(body.categoryId > 0)) throw new Error("A valid category is required.");
-      const list = store.get("demoRequests", []);
-      const id = Math.max(0, ...list.map(x => x.requestId)) + 1;
-      const now = new Date().toISOString();
-      list.push({ ...body, requestId: id, ticketNumber: `CC-${String(id + 120).padStart(5, "0")}`, statusId: 1,
-        requestDate: now, updatedAt: now, version: 1 });
-      store.set("demoRequests", list);
-      return id;
-    },
-    async updateStatus(id, payload) {
-      if (this.mode === "live") {
-        const r = await fetch(`/api/requests/${id}/status`, {
-          method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
-        });
-        if (!r.ok) throw new Error(await errText(r));
-        return true;
-      }
-      if (payload.newStatus === "Resolved" && !String(payload.notes || "").trim())
-        throw new Error("Resolution notes are required when resolving a request.");
-      const list = store.get("demoRequests", []);
-      const req = list.find(x => x.requestId === id);
-      if (!req) throw new Error(`Request #${id} was not found.`);
-      if (req.version !== payload.expectedVersion)
-        throw new Error("This request was changed by someone else. Reload and try again.");
-      req.statusId = STATUSES.find(s => s.name === payload.newStatus).id;
-      req.version++; req.updatedAt = new Date().toISOString();
-      store.set("demoRequests", list);
-      return true;
-    }
-  };
-
-  async function errText(r) {
-    try { const d = await r.json(); return d.message || d.Message || d.title || `Request failed (${r.status}).`; }
-    catch { return `Request failed (${r.status}).`; }
-  }
-
-  // Accept PascalCase or camelCase from the API and fill in display names.
-  function normalise(x) {
-    const g = (a, b) => x[a] !== undefined ? x[a] : x[b];
-    const o = {
-      requestId: g("requestId", "RequestId"), ticketNumber: g("ticketNumber", "TicketNumber"),
-      requesterId: g("requesterId", "RequesterId"), categoryId: g("categoryId", "CategoryId"),
-      statusId: g("statusId", "StatusId"), title: g("title", "Title"), description: g("description", "Description"),
-      location: g("location", "Location"), requestDate: g("requestDate", "RequestDate"),
-      updatedAt: g("updatedAt", "UpdatedAt"), version: g("version", "Version"),
-      requesterName: g("requesterName", "RequesterName"), categoryName: g("categoryName", "CategoryName"),
-      requestStatus: g("requestStatus", "RequestStatus")
-    };
-    o.categoryName ||= (CATEGORIES.find(c => c.id === o.categoryId) || {}).name || "—";
-    o.requestStatus ||= (STATUSES.find(s => s.id === o.statusId) || {}).name || "Pending";
-    o.requesterName ||= userName(o.requesterId);
-    o.ticketNumber ||= `#${o.requestId}`;
-    const ex = extras.of(o.requestId);
-    o.priority = ex.priority; o.assignedTo = ex.assignedTo;
-    return o;
-  }
-
-  function seedDemo() {
-    if (store.get("demoSeeded3", false)) return;
-    const d = n => new Date(Date.now() - n * 864e5).toISOString();
-    const rows = [
-      [1, 1, 2, "Streetlight out on Main Road", "The streetlight outside no. 42 has been off for three nights. The corner is very dark.", "42 Main Road", 12, "High", 2],
-      [1, 4, 1, "Community hall booking for youth day", "Requesting the hall on the 16th from 09:00–14:00 for a youth workshop (about 40 people).", "Ward 5 Community Hall", 9, "Low", null],
-      [1, 2, 3, "Library Wi-Fi not working", "Public Wi-Fi at the library drops every few minutes, so people can't finish online applications.", "Central Library", 6, "Medium", 4],
-      [1, 1, 3, "Burst water pipe near park entrance", "Water has been running across the pavement since yesterday morning.", "Oak Park, east gate", 4, "High", 2],
-      [1, 3, 1, "Broken gate lock at clinic", "The side gate lock is broken and the gate can't be closed overnight.", "Riverside Clinic", 1, "High", null],
-      [5, 5, 2, "Illegal dumping behind shops", "Large pile of building rubble dumped behind the shopping centre.", "Maple Shopping Centre", 10, "Medium", 4],
-      [5, 1, 1, "Pothole on Church Street", "Deep pothole in the left lane; two cars have had flat tyres.", "Church St & 3rd Ave", 2, "Medium", null],
-      [6, 4, 3, "Toilets out of order at sports field", "Both public toilets are blocked.", "Greenfield Sports Ground", 15, "Low", 2]
-    ];
-    const reqs = [], ex = {};
-    rows.forEach((r, i) => {
-      const id = i + 1, [requesterId, categoryId, statusId, title, description, location, age, priority, staff] = r;
-      reqs.push({ requestId: id, ticketNumber: `CC-${String(id + 120).padStart(5, "0")}`, requesterId, categoryId, statusId,
-        title, description, location, requestDate: d(age), updatedAt: d(Math.max(0, age - 2)), version: statusId });
-      const h = [{ at: d(age), by: requesterId, action: "Created", note: "Request submitted." }];
-      if (staff) h.push({ at: d(age - 1), by: 3, action: "Assigned", note: `Assigned to ${userName(staff)}.` });
-      if (statusId >= 2) h.push({ at: d(age - 1.5), by: staff || 2, action: "Status changed", note: "Pending → In Progress" });
-      if (statusId === 3) h.push({ at: d(age - 2), by: staff || 2, action: "Resolved", note: "Work completed and checked on site." });
-      ex[id] = { priority, assignedTo: staff, history: h,
-        comments: staff ? [{ at: d(age - 1), by: staff, text: "Thanks — a team has been scheduled to look at this." }] : [] };
-    });
-    USERS.push({ id: 5, name: "Lerato Dube", role: "Requester" }, { id: 6, name: "Peter Naidoo", role: "Requester" });
-    store.set("demoRequests", reqs); store.set("extras", ex); store.set("demoSeeded3", true);
-  }
-
-  // ---------- Utilities ----------
+  // ---------- Helpers ----------
   const $ = (s, el = document) => el.querySelector(s);
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  const fmtDate = s => s ? new Date(s).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "—";
-  const fmtDateTime = s => s ? new Date(s).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
-  const initials = n => n.split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase();
+  // The API returns UTC times without a zone marker; treat them as UTC.
+  const toDate = s => s ? new Date(/[zZ]|[+-]\d\d:\d\d$/.test(s) ? s : s + "Z") : null;
+  const fmtDate = s => s ? toDate(s).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "—";
+  const fmtDateTime = s => s ? toDate(s).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
+  const initials = n => String(n || "?").split(" ").filter(Boolean).map(p => p[0]).slice(0, 2).join("").toUpperCase();
   const statusBadge = s => `<span class="badge ${s === "Resolved" ? "b-resolved" : s === "In Progress" ? "b-progress" : "b-pending"}">${esc(s)}</span>`;
-  const priorityBadge = p => `<span class="badge p-${(p || "medium").toLowerCase()}">${esc(p || "Medium")}</span>`;
-  const isOverdue = r => r.requestStatus !== "Resolved" && (Date.now() - new Date(r.requestDate)) / 864e5 > OVERDUE_DAYS;
+  const isOverdue = r => r.requestStatus !== "Resolved" && (Date.now() - toDate(r.requestDate)) / 864e5 > OVERDUE_DAYS;
+  const store = {
+    get(k) { try { return JSON.parse(localStorage.getItem("cc." + k)); } catch { return null; } },
+    set(k, v) { try { v == null ? localStorage.removeItem("cc." + k) : localStorage.setItem("cc." + k, JSON.stringify(v)); } catch { /* ignore */ } }
+  };
+
+  // Map database role names onto the three areas of the app.
+  function appRole(role) {
+    const r = String(role || "").toLowerCase();
+    if (r === "staff") return "Staff";
+    if (r === "manager" || r === "management" || r === "admin") return "Manager";
+    return "Requester"; // Requester, Citizen, anything else
+  }
 
   function toast(msg, err) {
     const t = $("#toast"); t.textContent = msg; t.className = "toast show" + (err ? " err" : "");
     clearTimeout(toast.t); toast.t = setTimeout(() => (t.className = "toast"), 3200);
   }
 
-  function addHistory(id, action, note) {
-    const ex = extras.of(id);
-    ex.history = [...(ex.history || []), { at: new Date().toISOString(), by: session.user.id, action, note }];
-    extras.save(id, ex);
+  // ---------- API ----------
+  async function http(method, url, body) {
+    let r;
+    try {
+      r = await fetch(url, {
+        method, cache: "no-store",
+        headers: body ? { "Content-Type": "application/json", Accept: "application/json" } : { Accept: "application/json" },
+        body: body ? JSON.stringify(body) : undefined
+      });
+    } catch {
+      throw new Error("Can't reach the CivicConnect server. Check your connection and try again.");
+    }
+    const text = await r.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch { /* not JSON */ }
+    if (!r.ok) {
+      const msg = (data && (data.message || data.Message || data.title)) || `Request failed (${r.status}).`;
+      const e = new Error(msg); e.status = r.status; throw e;
+    }
+    return data;
+  }
+
+  const api = {
+    login: (email, password) => http("POST", "/api/auth/login", { email, password }),
+    register: (fullName, email, password) => http("POST", "/api/auth/register", { fullName, email, password }),
+    users: role => http("GET", "/api/users" + (role ? `?role=${encodeURIComponent(role)}` : "")),
+    categories: () => http("GET", "/api/categories"),
+    statuses: () => http("GET", "/api/statuses"),
+    requests: () => http("GET", "/api/requests"),
+    request: id => http("GET", `/api/requests/${id}`),
+    createRequest: body => http("POST", "/api/requests", body),
+    updateStatus: (id, body) => http("PATCH", `/api/requests/${id}/status`, body),
+    history: id => http("GET", `/api/requests/${id}/history`),
+    comments: id => http("GET", `/api/requests/${id}/comments`),
+    addComment: (id, userId, commentText) => http("POST", `/api/requests/${id}/comments`, { userId, commentText }),
+    assignments: () => http("GET", "/api/assignments"),
+    assign: (id, staffUserId, changedByUserId) => http("PUT", `/api/requests/${id}/assignment`, { staffUserId, changedByUserId })
+  };
+
+  // Reference data, loaded once per page load.
+  const ref = { categories: null, statuses: null };
+  async function loadRef() {
+    if (!ref.categories) [ref.categories, ref.statuses] = await Promise.all([api.categories(), api.statuses()]);
+  }
+
+  // Requests joined with their current assignment.
+  async function loadRequests() {
+    const [reqs, assigns] = await Promise.all([api.requests(), api.assignments().catch(() => [])]);
+    const byReq = new Map(assigns.map(a => [a.requestId, a]));
+    return reqs.map(r => ({ ...r, assignment: byReq.get(r.requestId) || null }))
+      .sort((a, b) => toDate(b.requestDate) - toDate(a.requestDate));
   }
 
   // ---------- Icons ----------
@@ -216,19 +115,22 @@
     menu: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>`
   };
 
-  // ---------- Session & navigation ----------
-  const session = { user: store.get("user", null) };
+  // ---------- Session & shell ----------
+  const session = { user: store.get("user") };
+  const role = () => appRole(session.user && session.user.role);
+  function signIn(user) { session.user = user; store.set("user", user); location.hash = HOME[appRole(user.role)]; }
+  function signOut() { session.user = null; store.set("user", null); location.hash = "#/login"; }
 
   const NAV = {
     Requester: [["#/dashboard", "Dashboard", I.home], ["#/my-requests", "My Requests", I.list], ["#/submit", "Submit Request", I.plus]],
     Staff: [["#/queue", "Request Queue", I.inbox], ["#/assignments", "My Assignments", I.user], ["#/reports", "Reports", I.report]],
-    Manager: [["#/management", "Dashboard", I.home], ["#/reports", "Reports", I.report], ["#/analytics", "Analytics", I.chart], ["#/users", "Users", I.users]]
+    Manager: [["#/management", "Dashboard", I.home], ["#/queue", "Request Queue", I.inbox], ["#/reports", "Reports", I.report], ["#/analytics", "Analytics", I.chart], ["#/users", "Users", I.users]]
   };
   const HOME = { Requester: "#/dashboard", Staff: "#/queue", Manager: "#/management" };
 
   function shell(inner) {
     const u = session.user, hash = location.hash;
-    const nav = NAV[u.role].map(([href, label, icon]) => {
+    const nav = NAV[role()].map(([href, label, icon]) => {
       const active = hash === href || hash.startsWith(href + "/") ||
         (href === "#/my-requests" && hash.startsWith("#/request/")) || (href === "#/queue" && hash.startsWith("#/manage/"));
       return `<a href="${href}" class="${active ? "active" : ""}">${icon}<span>${label}</span></a>`;
@@ -238,32 +140,36 @@
         <div class="brand">${I.logo}<span>CivicConnect</span></div>
         <nav class="nav">${nav}</nav>
         <div class="user-box">
-          <div class="avatar">${initials(u.name)}</div>
-          <div><div class="name">${esc(u.name)}</div><div class="role">${esc(u.role)}</div></div>
+          <div class="avatar">${initials(u.fullName)}</div>
+          <div><div class="name">${esc(u.fullName)}</div><div class="role">${esc(role())}</div></div>
           <button id="logout" title="Sign out" aria-label="Sign out">${I.logout}</button>
         </div>
       </aside>
       <div class="main">
         <header class="topbar">
           <button class="menu-btn" id="menu" aria-label="Open menu">${I.menu}</button>
-          <span class="api-pill ${api.mode === "demo" ? "demo" : ""}" title="${api.mode === "demo" ? "The API could not be reached, so sample data is shown." : "Connected to /api/requests"}">${api.mode === "demo" ? "Demo data" : "Live API"}</span>
-          <div class="avatar" title="${esc(u.name)}">${initials(u.name)}</div>
+          <div class="avatar" title="${esc(u.fullName)}">${initials(u.fullName)}</div>
         </header>
         <main class="content">${inner}</main>
       </div>
     </div>`;
   }
 
-  function bindShell() {
-    $("#logout").onclick = () => { session.user = null; store.set("user", null); location.hash = "#/login"; };
+  function render(inner) {
+    $("#app").innerHTML = shell(inner);
+    $("#logout").onclick = signOut;
     $("#menu").onclick = e => { e.stopPropagation(); $("#shell").classList.toggle("nav-open"); };
     $("#shell").addEventListener("click", e => {
       if (!e.target.closest(".sidebar") && !e.target.closest("#menu")) $("#shell").classList.remove("nav-open");
     });
+    bindRows();
+    window.scrollTo(0, 0);
   }
+  const loading = () => render(`<div class="card empty">Loading…</div>`);
 
-  function requestTable(rows, cols, linkBase) {
-    if (!rows.length) return `<div class="empty">No requests to show.</div>`;
+  // ---------- Tables ----------
+  function requestTable(rows, cols, linkBase, emptyText = "No requests to show.") {
+    if (!rows.length) return `<div class="empty">${emptyText}</div>`;
     const head = cols.map(c => `<th>${c[0]}</th>`).join("");
     const body = rows.map(r => `<tr class="clickable" data-href="${linkBase}${r.requestId}" tabindex="0">${cols.map(c => `<td>${c[1](r)}</td>`).join("")}</tr>`).join("");
     return `<div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
@@ -273,9 +179,9 @@
     title: ["Title", r => esc(r.title)],
     category: ["Category", r => esc(r.categoryName)],
     status: ["Status", r => statusBadge(r.requestStatus)],
-    priority: ["Priority", r => priorityBadge(r.priority)],
+    requester: ["Requester", r => esc(r.requesterName)],
     date: ["Date", r => `<span class="muted">${fmtDate(r.requestDate)}</span>`],
-    assigned: ["Assigned to", r => r.assignedTo ? esc(userName(r.assignedTo)) : `<span class="muted">Unassigned</span>`]
+    assigned: ["Assigned to", r => r.assignment ? esc(r.assignment.staffName) : `<span class="muted">Unassigned</span>`]
   };
   function bindRows(root = document) {
     root.querySelectorAll("tr[data-href]").forEach(tr => {
@@ -283,46 +189,37 @@
       tr.onkeydown = e => { if (e.key === "Enter") location.hash = tr.dataset.href; };
     });
   }
+  const stat = (n, l, color) => `<div class="card stat"><div class="num">${n}</div><div class="lbl">${color ? `<span class="dot" style="background:${color}"></span>` : ""}${l}</div></div>`;
 
-  // ---------- Screens ----------
+  // ---------- Login / Register ----------
+  function authCard(inner) {
+    $("#app").innerHTML = `<div class="login-wrap"><div class="login-card"><div class="logo">${I.logo}</div>${inner}</div></div>`;
+  }
 
-  // 1. Login
   function viewLogin() {
-    $("#app").innerHTML = `<div class="login-wrap"><div class="login-card">
-      <div class="logo">${I.logo}</div>
-      <h1>CivicConnect</h1>
+    authCard(`<h1>CivicConnect</h1>
       <p class="tag">Community Service Request Management</p>
-      <form id="loginForm" autocomplete="on">
-        <div class="input-icon">${I.user}<input type="text" id="email" placeholder="Username or Email" required></div>
-        <div class="input-icon">${I.lock}<input type="password" id="pw" placeholder="Password"></div>
-        <div>
-          <div class="field-label" style="margin-bottom:6px">Sign in as (demo)</div>
-          <div class="role-pick">
-            ${["Requester", "Staff", "Manager"].map((r, i) => `<label><input type="radio" name="role" value="${r}" ${i === 0 ? "checked" : ""}><span>${r}</span></label>`).join("")}
-          </div>
-        </div>
-        <button class="btn btn-primary btn-block" type="submit">Login</button>
+      <form id="loginForm" novalidate>
+        <div id="loginErr"></div>
+        <div class="input-icon">${I.mail}<input type="text" id="email" placeholder="Email" autocomplete="username"></div>
+        <div class="input-icon">${I.lock}<input type="password" id="pw" placeholder="Password" autocomplete="current-password"></div>
+        <button class="btn btn-primary btn-block" type="submit" id="loginBtn">Login</button>
       </form>
       <a href="#/login" class="forgot" id="forgot">Forgot password?</a>
-      <p class="switch-auth">Don't have an account? <a href="#/register">Register</a></p>
-    </div></div>`;
+      <p class="switch-auth">Don't have an account? <a href="#/register">Register</a></p>`);
     $("#forgot").onclick = e => { e.preventDefault(); toast("Password reset isn't available yet — contact your administrator."); };
-    $("#loginForm").onsubmit = e => {
+    $("#loginForm").onsubmit = async e => {
       e.preventDefault();
-      // TODO(API): replace with a real auth endpoint. For now the selected role picks a demo user.
-      const role = $("input[name=role]:checked").value;
-      const email = $("#email").value.trim().toLowerCase();
-      const user = USERS.find(u => (u.email || "").toLowerCase() === email && u.role === role) || USERS.find(u => u.role === role);
-      session.user = user; store.set("user", user);
-      location.hash = HOME[role];
+      const email = $("#email").value.trim(), pw = $("#pw").value;
+      if (!email || !pw) { $("#loginErr").innerHTML = `<div class="error-msg">Please enter your email and password.</div>`; return; }
+      $("#loginBtn").disabled = true;
+      try { signIn(await api.login(email, pw)); }
+      catch (err) { $("#loginErr").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`; $("#loginBtn").disabled = false; }
     };
   }
 
-  // Register (public sign-up creates a Requester; staff and managers are added by an admin)
   function viewRegister() {
-    $("#app").innerHTML = `<div class="login-wrap"><div class="login-card">
-      <div class="logo">${I.logo}</div>
-      <h1>Create an account</h1>
+    authCard(`<h1>Create an account</h1>
       <p class="tag">Register to submit and track service requests</p>
       <form id="regForm" novalidate>
         <div id="regErr"></div>
@@ -330,80 +227,77 @@
         <div class="input-icon">${I.mail}<input type="text" id="remail" placeholder="Email" autocomplete="email"></div>
         <div class="input-icon">${I.lock}<input type="password" id="rpw" placeholder="Password (min. 8 characters)" autocomplete="new-password"></div>
         <div class="input-icon">${I.lock}<input type="password" id="rpw2" placeholder="Confirm password" autocomplete="new-password"></div>
-        <button class="btn btn-primary btn-block" type="submit">Register</button>
+        <button class="btn btn-primary btn-block" type="submit" id="regBtn">Register</button>
       </form>
-      <p class="switch-auth">Already have an account? <a href="#/login">Log in</a></p>
-    </div></div>`;
-    $("#regForm").onsubmit = e => {
+      <p class="switch-auth">Already have an account? <a href="#/login">Log in</a></p>`);
+    $("#regForm").onsubmit = async e => {
       e.preventDefault();
-      const name = $("#rname").value.trim(), email = $("#remail").value.trim().toLowerCase(), pw = $("#rpw").value, pw2 = $("#rpw2").value;
+      const name = $("#rname").value.trim(), email = $("#remail").value.trim(), pw = $("#rpw").value, pw2 = $("#rpw2").value;
       const err = !name ? "Please enter your full name." :
         !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? "Please enter a valid email address." :
-        USERS.some(u => (u.email || "").toLowerCase() === email) ? "An account with this email already exists." :
         pw.length < 8 ? "Password must be at least 8 characters." :
         pw !== pw2 ? "Passwords don't match." : "";
       if (err) { $("#regErr").innerHTML = `<div class="error-msg">${esc(err)}</div>`; return; }
-      // TODO(API): POST to a register endpoint (with a hashed password) once auth exists.
-      const user = { id: Math.max(99, ...USERS.map(u => u.id)) + 1, name, email, role: "Requester" };
-      USERS.push(user);
-      const saved = store.get("registered", []); saved.push(user); store.set("registered", saved);
-      session.user = user; store.set("user", user);
-      toast(`Welcome, ${name.split(" ")[0]}! Your account has been created.`);
-      location.hash = HOME.Requester;
+      $("#regBtn").disabled = true;
+      try {
+        const user = await api.register(name, email, pw);
+        toast(`Welcome, ${name.split(" ")[0]}! Your account has been created.`);
+        signIn(user);
+      } catch (ex) {
+        $("#regErr").innerHTML = `<div class="error-msg">${esc(ex.message)}</div>`;
+        $("#regBtn").disabled = false;
+      }
     };
   }
 
-  // 2. Requester dashboard
+  // ---------- Requester ----------
   async function viewRequesterDashboard() {
-    const all = await api.list();
-    const mine = all.filter(r => r.requesterId === session.user.id).sort((a, b) => new Date(b.requestDate) - new Date(a.requestDate));
+    const mine = (await loadRequests()).filter(r => r.requesterId === session.user.userId);
     const c = s => mine.filter(r => r.requestStatus === s).length;
-    render(`<div class="page-head"><h1>Dashboard</h1><a href="#/submit" class="btn btn-primary">${I.plus.replace("<svg", '<svg width="16" height="16"')} New request</a></div>
+    render(`<div class="page-head"><h1>Dashboard</h1><a href="#/submit" class="btn btn-primary">New request</a></div>
       <div class="stats">
         ${stat(mine.length, "Total Requests")}${stat(c("Pending"), "Pending", "var(--pending)")}
         ${stat(c("In Progress"), "In Progress", "var(--progress)")}${stat(c("Resolved"), "Resolved", "var(--resolved)")}
       </div>
       <h2>My Recent Requests</h2>
-      <div class="card">${requestTable(mine.slice(0, 5), [COL.ticket, COL.title, COL.status, COL.date], "#/request/")}</div>`);
+      <div class="card">${requestTable(mine.slice(0, 5), [COL.ticket, COL.title, COL.status, COL.date], "#/request/", "You haven't submitted any requests yet.")}</div>`);
   }
-  const stat = (n, l, color) => `<div class="card stat"><div class="num">${n}</div><div class="lbl">${color ? `<span class="dot" style="background:${color}"></span>` : ""}${l}</div></div>`;
 
   async function viewMyRequests() {
-    const mine = (await api.list()).filter(r => r.requesterId === session.user.id).sort((a, b) => new Date(b.requestDate) - new Date(a.requestDate));
+    const mine = (await loadRequests()).filter(r => r.requesterId === session.user.userId);
     render(`<div class="page-head"><h1>My Requests</h1><a href="#/submit" class="btn btn-primary">New request</a></div>
-      <div class="card">${requestTable(mine, [COL.ticket, COL.title, COL.category, COL.status, COL.date], "#/request/")}</div>`);
+      <div class="card">${requestTable(mine, [COL.ticket, COL.title, COL.category, COL.status, COL.date], "#/request/", "You haven't submitted any requests yet.")}</div>`);
   }
 
-  // 3. Submit
-  function viewSubmit() {
+  async function viewSubmit() {
+    await loadRef();
     render(`<div class="page-head"><h1>Submit a Service Request</h1></div>
       <div class="card card-pad"><form class="form" id="submitForm" novalidate>
         <div id="formErr"></div>
         <div class="field"><label for="cat">Category <span class="req">*</span></label>
-          <select id="cat" required><option value="">Select a category…</option>${CATEGORIES.map(c => `<option value="${c.id}">${c.name}</option>`).join("")}</select></div>
+          <select id="cat"><option value="">Select a category…</option>${ref.categories.map(c => `<option value="${c.categoryId}">${esc(c.categoryName)}</option>`).join("")}</select></div>
         <div class="field"><label for="title">Title <span class="req">*</span></label>
-          <input type="text" id="title" maxlength="200" placeholder="e.g. Streetlight out on Main Road" required></div>
+          <input type="text" id="title" maxlength="200" placeholder="e.g. Streetlight out on Main Road"></div>
         <div class="field"><label for="desc">Description <span class="req">*</span></label>
-          <textarea id="desc" required placeholder="What's the problem, and since when?"></textarea></div>
+          <textarea id="desc" placeholder="What's the problem, and since when?"></textarea></div>
         <div class="field"><label for="loc">Location <span class="req">*</span></label>
-          <input type="text" id="loc" maxlength="255" placeholder="Street address or landmark" required>
+          <input type="text" id="loc" maxlength="255" placeholder="Street address or landmark">
           <span class="hint">Be as specific as you can so staff can find it.</span></div>
         <div class="form-actions"><a href="#/dashboard" class="btn">Cancel</a><button class="btn btn-primary" type="submit" id="submitBtn">Submit</button></div>
       </form></div>`);
     $("#submitForm").onsubmit = async e => {
       e.preventDefault();
       const body = {
-        requesterId: session.user.id, categoryId: Number($("#cat").value) || 0,
+        requesterId: session.user.userId, categoryId: Number($("#cat").value) || 0,
         title: $("#title").value.trim(), description: $("#desc").value.trim(), location: $("#loc").value.trim()
       };
       const missing = [!body.categoryId && "category", !body.title && "title", !body.description && "description", !body.location && "location"].filter(Boolean);
       if (missing.length) { $("#formErr").innerHTML = `<div class="error-msg">Please fill in the ${missing.join(", ")}.</div>`; return; }
       $("#submitBtn").disabled = true;
       try {
-        const id = await api.create(body);
-        addHistory(id, "Created", "Request submitted.");
+        const res = await api.createRequest(body);
         toast("Request submitted.");
-        location.hash = `#/request/${id}`;
+        location.hash = `#/request/${res.requestId ?? res.RequestId}`;
       } catch (err) {
         $("#formErr").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
         $("#submitBtn").disabled = false;
@@ -411,42 +305,55 @@
     };
   }
 
-  // 4 & 6. Request details (requester view, or staff view with assignment controls)
+  // ---------- Request details (requester view, or staff view with controls) ----------
+  const historyText = h => {
+    if (h.actionType === "RequestCreated") return "Request submitted";
+    if (h.actionType === "StatusChanged") return `Status changed${h.oldStatus ? ` from ${h.oldStatus}` : ""} to ${h.newStatus}`;
+    return h.actionType.replace(/([a-z])([A-Z])/g, "$1 $2");
+  };
+
   async function viewDetails(id, staffMode) {
-    const r = await api.get(id);
     const backHref = staffMode ? "#/queue" : "#/my-requests", backLbl = staffMode ? "Back to Queue" : "Back to My Requests";
-    if (!r) { render(`<a class="back" href="${backHref}">${I.back} ${backLbl}</a><div class="card empty">Request #${id} was not found.</div>`); return; }
-    if (!staffMode && session.user.role === "Requester" && r.requesterId !== session.user.id) {
+    let r;
+    try { r = await api.request(id); }
+    catch (err) {
+      render(`<a class="back" href="${backHref}">${I.back} ${backLbl}</a><div class="card empty">${esc(err.status === 404 ? `Request #${id} was not found.` : err.message)}</div>`);
+      return;
+    }
+    if (!staffMode && r.requesterId !== session.user.userId) {
       render(`<a class="back" href="${backHref}">${I.back} ${backLbl}</a><div class="card empty">You can only view your own requests.</div>`); return;
     }
-    const ex = extras.of(id);
+    const [history, comments, assigns, staff] = await Promise.all([
+      api.history(id), api.comments(id), api.assignments().catch(() => []),
+      staffMode ? Promise.all([api.users("Staff"), api.users("Manager")]).then(([a, b]) => [...a, ...b]) : Promise.resolve([]),
+      staffMode ? loadRef() : null
+    ]);
+    const assignment = assigns.find(a => a.requestId === id) || null;
     const tab = viewDetails.tab || (staffMode ? "details" : "history");
 
     const details = `<p class="desc">${esc(r.description)}</p>
       ${staffMode ? `
         <div class="assign-grid">
-          <div class="field form"><label for="prio">Priority</label>
-            <select id="prio">${PRIORITIES.map(p => `<option ${p === ex.priority ? "selected" : ""}>${p}</option>`).join("")}</select></div>
           <div class="field form"><label for="assignee">Assign to</label>
-            <select id="assignee"><option value="">Unassigned</option>${STAFF.map(s => `<option value="${s.id}" ${s.id === ex.assignedTo ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select></div>
+            <select id="assignee"><option value="">Unassigned</option>${staff.map(s => `<option value="${s.userId}" ${assignment && s.userId === assignment.staffUserId ? "selected" : ""}>${esc(s.fullName)}</option>`).join("")}</select></div>
+          <div class="field form"><label for="status">Status</label>
+            <select id="status">${ref.statuses.map(s => `<option ${s.statusName === r.requestStatus ? "selected" : ""}>${esc(s.statusName)}</option>`).join("")}</select></div>
         </div>
-        <div class="form note-box" style="max-width:none"><div class="field"><label for="status">Status</label>
-          <select id="status">${STATUSES.map(s => `<option ${s.name === r.requestStatus ? "selected" : ""}>${s.name}</option>`).join("")}</select></div>
-        <div class="field"><label for="notes">Notes <span class="hint">(required when resolving)</span></label>
+        <div class="form note-box" style="max-width:none">
+          <div class="field"><label for="notes">Notes <span class="hint">(required when resolving)</span></label>
           <textarea id="notes" style="min-height:80px" placeholder="What was done?"></textarea></div></div>
         <div id="actErr" style="margin-top:12px"></div>
         <div class="actions-row"><button class="btn" id="saveBtn">Update Status</button>
           <button class="btn btn-primary" id="resolveBtn" ${r.requestStatus === "Resolved" ? "disabled" : ""}>Resolve</button></div>` : ""}`;
 
-    const hist = (ex.history || []).slice().reverse();
-    const history = hist.length ? `<ul class="timeline">${hist.map(h => `<li><div class="when">${fmtDateTime(h.at)} · ${esc(userName(h.by))}</div>
-        <div class="what">${esc(h.action)}</div>${h.note ? `<div class="note">${esc(h.note)}</div>` : ""}</li>`).join("")}</ul>`
+    const historyHtml = history.length ? `<ul class="timeline">${history.map(h => `<li><div class="when">${fmtDateTime(h.changedAt)} · ${esc(h.changedByName || `User #${h.changedByUserId}`)}</div>
+        <div class="what">${esc(historyText(h))}</div>${h.notes ? `<div class="note">${esc(h.notes)}</div>` : ""}</li>`).join("")}</ul>`
       : `<div class="empty">No history recorded yet.</div>`;
 
-    const comments = `<div class="comments">${(ex.comments || []).length ? ex.comments.map(c => `<div class="comment"><div class="avatar">${initials(userName(c.by))}</div>
-        <div class="bubble"><div class="who">${esc(userName(c.by))}<span>${fmtDateTime(c.at)}</span></div>${esc(c.text)}</div></div>`).join("")
+    const commentsHtml = `<div class="comments">${comments.length ? comments.map(c => `<div class="comment"><div class="avatar">${initials(c.userName)}</div>
+        <div class="bubble"><div class="who">${esc(c.userName || `User #${c.userId}`)}<span>${fmtDateTime(c.createdAt)}</span></div>${esc(c.commentText)}</div></div>`).join("")
         : `<div class="empty">No comments yet.</div>`}</div>
-      <form class="comment-form" id="commentForm"><textarea id="commentText" placeholder="Add a comment…" required></textarea><button class="btn btn-primary">Post</button></form>`;
+      <form class="comment-form" id="commentForm"><textarea id="commentText" placeholder="Add a comment…"></textarea><button class="btn btn-primary" id="commentBtn">Post</button></form>`;
 
     render(`<a class="back" href="${backHref}">${I.back} ${backLbl}</a>
       <div class="page-head" style="border:0;padding-bottom:0;margin-bottom:16px"><h1>Ticket ${esc(r.ticketNumber)}</h1>${statusBadge(r.requestStatus)}</div>
@@ -455,80 +362,83 @@
         <div><dt>Status</dt><dd>${esc(r.requestStatus)}</dd></div>
         <div><dt>Location</dt><dd>${esc(r.location)}</dd></div>
         <div><dt>Submitted</dt><dd>${fmtDateTime(r.requestDate)}${staffMode ? ` by ${esc(r.requesterName)}` : ""}</dd></div>
-        ${staffMode ? `<div><dt>Priority</dt><dd>${priorityBadge(ex.priority)}</dd></div><div><dt>Assigned to</dt><dd>${ex.assignedTo ? esc(userName(ex.assignedTo)) : "Unassigned"}</dd></div>` : ""}
+        <div><dt>Assigned to</dt><dd>${assignment ? esc(assignment.staffName) : "Unassigned"}</dd></div>
       </dl></div>
       <div class="tabs" role="tablist">${["details", "history", "comments"].map(t => `<button class="tab ${t === tab ? "active" : ""}" data-tab="${t}" role="tab">${t[0].toUpperCase() + t.slice(1)}</button>`).join("")}</div>
-      <div class="card card-pad tab-panel">${{ details, history, comments }[tab]}</div>`);
+      <div class="card card-pad tab-panel">${{ details, history: historyHtml, comments: commentsHtml }[tab]}</div>`);
 
     document.querySelectorAll(".tab").forEach(b => b.onclick = () => { viewDetails.tab = b.dataset.tab; viewDetails(id, staffMode); });
 
     const cf = $("#commentForm");
-    if (cf) cf.onsubmit = e => {
+    if (cf) cf.onsubmit = async e => {
       e.preventDefault();
       const text = $("#commentText").value.trim(); if (!text) return;
-      const ex2 = extras.of(id); ex2.comments = [...(ex2.comments || []), { at: new Date().toISOString(), by: session.user.id, text }];
-      extras.save(id, ex2); viewDetails(id, staffMode);
+      $("#commentBtn").disabled = true;
+      try { await api.addComment(id, session.user.userId, text); viewDetails(id, staffMode); }
+      catch (err) { toast(err.message, true); $("#commentBtn").disabled = false; }
     };
 
     if (staffMode && $("#saveBtn")) {
       const apply = async resolve => {
         const newStatus = resolve ? "Resolved" : $("#status").value, notes = $("#notes").value.trim();
-        const prio = $("#prio").value, assignee = Number($("#assignee").value) || null;
+        const assignee = Number($("#assignee").value) || null;
         $("#actErr").innerHTML = "";
-        // Save priority / assignment locally (no endpoint yet)
-        const ex2 = extras.of(id);
-        if (prio !== ex2.priority) { addHistory(id, "Priority changed", `${ex2.priority} → ${prio}`); }
-        if (assignee !== ex2.assignedTo) { addHistory(id, "Assigned", assignee ? `Assigned to ${userName(assignee)}.` : "Unassigned."); }
-        const ex3 = extras.of(id); ex3.priority = prio; ex3.assignedTo = assignee; extras.save(id, ex3);
-        if (newStatus !== r.requestStatus || (resolve && notes)) {
-          try {
-            await api.updateStatus(id, { newStatus, changedByUserId: session.user.id, expectedVersion: r.version, notes: notes || null });
-            addHistory(id, resolve ? "Resolved" : "Status changed", resolve ? notes : `${r.requestStatus} → ${newStatus}${notes ? ` — ${notes}` : ""}`);
-          } catch (err) { $("#actErr").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`; return; }
+        if (resolve && !notes) { $("#actErr").innerHTML = `<div class="error-msg">Resolution notes are required when resolving a request.</div>`; return; }
+        $("#saveBtn").disabled = $("#resolveBtn").disabled = true;
+        try {
+          if (assignee !== (assignment ? assignment.staffUserId : null))
+            await api.assign(id, assignee, session.user.userId);
+          if (newStatus !== r.requestStatus || (resolve && notes))
+            await api.updateStatus(id, { newStatus, changedByUserId: session.user.userId, expectedVersion: r.version, notes: notes || null });
+          toast(resolve ? "Request resolved." : "Request updated.");
+          viewDetails(id, true);
+        } catch (err) {
+          $("#actErr").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
+          $("#saveBtn").disabled = false; $("#resolveBtn").disabled = r.requestStatus === "Resolved";
         }
-        toast(resolve ? "Request resolved." : "Request updated.");
-        viewDetails(id, true);
       };
       $("#saveBtn").onclick = () => apply(false);
       $("#resolveBtn").onclick = () => apply(true);
     }
   }
 
-  // 5. Staff queue (also used for My Assignments)
+  // ---------- Staff queue / My Assignments ----------
   async function viewQueue(assignedOnly) {
-    const all = (await api.list()).sort((a, b) => new Date(b.requestDate) - new Date(a.requestDate));
+    const [all] = await Promise.all([loadRequests(), loadRef()]);
     const f = viewQueue.f || (viewQueue.f = { q: "", cat: "", status: "" });
     const rowsFor = () => all.filter(r =>
-      (!assignedOnly || r.assignedTo === session.user.id) &&
+      (!assignedOnly || (r.assignment && r.assignment.staffUserId === session.user.userId)) &&
       (!f.cat || r.categoryId === Number(f.cat)) && (!f.status || r.requestStatus === f.status) &&
       (!f.q || `${r.ticketNumber} ${r.title} ${r.location} ${r.requesterName}`.toLowerCase().includes(f.q.toLowerCase())));
-    const cols = [COL.ticket, COL.category, COL.title, COL.status, COL.priority, assignedOnly ? COL.date : COL.assigned, ...(assignedOnly ? [] : [COL.date])];
+    const cols = [COL.ticket, COL.category, COL.title, COL.status, ...(assignedOnly ? [] : [COL.assigned]), COL.date];
+    const empty = assignedOnly ? "No requests are assigned to you." : "No requests match.";
     render(`<div class="page-head"><h1>${assignedOnly ? "My Assignments" : "Request Queue"}</h1>
         <div class="search">${I.search}<input type="search" id="q" placeholder="Search..." value="${esc(f.q)}"></div></div>
       <div class="filters">
-        <select id="fcat"><option value="">All Categories</option>${CATEGORIES.map(c => `<option value="${c.id}" ${String(c.id) === f.cat ? "selected" : ""}>${c.name}</option>`).join("")}</select>
-        <select id="fstatus"><option value="">All Statuses</option>${STATUSES.map(s => `<option ${s.name === f.status ? "selected" : ""}>${s.name}</option>`).join("")}</select>
+        <select id="fcat"><option value="">All Categories</option>${ref.categories.map(c => `<option value="${c.categoryId}" ${String(c.categoryId) === f.cat ? "selected" : ""}>${esc(c.categoryName)}</option>`).join("")}</select>
+        <select id="fstatus"><option value="">All Statuses</option>${ref.statuses.map(s => `<option ${s.statusName === f.status ? "selected" : ""}>${esc(s.statusName)}</option>`).join("")}</select>
         <button class="btn" id="fbtn">Filter</button>
       </div>
-      <div class="card" id="tbl">${requestTable(rowsFor(), cols, "#/manage/")}</div>`);
-    const refresh = () => { $("#tbl").innerHTML = requestTable(rowsFor(), cols, "#/manage/"); bindRows($("#tbl")); };
+      <div class="card" id="tbl">${requestTable(rowsFor(), cols, "#/manage/", empty)}</div>`);
+    const refresh = () => { $("#tbl").innerHTML = requestTable(rowsFor(), cols, "#/manage/", empty); bindRows($("#tbl")); };
     $("#q").oninput = e => { f.q = e.target.value; refresh(); };
     $("#fbtn").onclick = () => { f.cat = $("#fcat").value; f.status = $("#fstatus").value; refresh(); };
   }
 
-  // 7. Management dashboard
+  // ---------- Management dashboard ----------
   async function viewManagement() {
-    const all = (await api.list()).sort((a, b) => new Date(b.requestDate) - new Date(a.requestDate));
+    const [all] = await Promise.all([loadRequests(), loadRef()]);
     const by = s => all.filter(r => r.requestStatus === s).length;
-    const palette = ["#0f7a6c", "#1f5fbf", "#c27c0e", "#7a4fb5", "#8a97a6"];
-    const cats = CATEGORIES.map((c, i) => ({ name: c.name, v: all.filter(r => r.categoryId === c.id).length, color: palette[i] }));
+    const palette = ["#0f7a6c", "#1f5fbf", "#c27c0e", "#7a4fb5", "#8a97a6", "#b4446c", "#4d8f2f"];
+    const cats = ref.categories.map((c, i) => ({ name: c.categoryName, v: all.filter(r => r.categoryId === c.categoryId).length, color: palette[i % palette.length] }));
     const total = all.length || 1;
     let acc = 0;
     const arcs = cats.filter(c => c.v).map(c => {
-      const len = (c.v / total) * 100, seg = `<circle r="15.915" cx="20" cy="20" fill="none" stroke="${c.color}" stroke-width="7" stroke-dasharray="${len} ${100 - len}" stroke-dashoffset="${25 - acc}"><title>${c.name}: ${c.v}</title></circle>`;
+      const len = (c.v / total) * 100, seg = `<circle r="15.915" cx="20" cy="20" fill="none" stroke="${c.color}" stroke-width="7" stroke-dasharray="${len} ${100 - len}" stroke-dashoffset="${25 - acc}"><title>${esc(c.name)}: ${c.v}</title></circle>`;
       acc += len; return seg;
     }).join("");
-    const statusRows = [["Pending", "var(--pending)"], ["In Progress", "var(--progress)"], ["Resolved", "var(--resolved)"]].map(([n, c]) => ({ n, c, v: by(n) }));
+    const colorFor = n => n === "Resolved" ? "var(--resolved)" : n === "In Progress" ? "var(--progress)" : "var(--pending)";
+    const statusRows = ref.statuses.map(s => ({ n: s.statusName, c: colorFor(s.statusName), v: by(s.statusName) }));
     const overdue = all.filter(isOverdue).length;
     const maxS = Math.max(1, ...statusRows.map(s => s.v), overdue);
     render(`<div class="page-head"><h1>Management Dashboard</h1></div>
@@ -537,29 +447,26 @@
         <div class="card card-pad"><h2>Requests by Category</h2><div class="donut-wrap">
           <svg class="donut" viewBox="0 0 40 40" role="img" aria-label="Requests by category"><circle r="15.915" cx="20" cy="20" fill="none" stroke="#eef1f4" stroke-width="7"/>${arcs}
             <text x="20" y="21.5" text-anchor="middle" font-size="7" font-weight="700" fill="var(--ink)">${all.length}</text></svg>
-          <ul class="legend">${cats.map(c => `<li><span class="sw" style="background:${c.color}"></span>${c.name}<span class="v">${c.v}</span></li>`).join("")}</ul></div></div>
+          <ul class="legend">${cats.map(c => `<li><span class="sw" style="background:${c.color}"></span>${esc(c.name)}<span class="v">${c.v}</span></li>`).join("")}</ul></div></div>
         <div class="card card-pad"><h2>Requests by Status</h2><div class="bars">
-          ${[...statusRows, { n: "Overdue", c: "var(--danger)", v: overdue }].map(s => `<div class="bar-row"><span>${s.n}</span><div class="bar-track"><div class="bar-fill" style="width:${(s.v / maxS) * 100}%;background:${s.c}"></div></div><span class="v">${s.v}</span></div>`).join("")}
+          ${[...statusRows, { n: "Overdue", c: "var(--danger)", v: overdue }].map(s => `<div class="bar-row"><span>${esc(s.n)}</span><div class="bar-track"><div class="bar-fill" style="width:${(s.v / maxS) * 100}%;background:${s.c}"></div></div><span class="v">${s.v}</span></div>`).join("")}
         </div></div>
       </div>
       <h2>Recent Requests</h2>
-      <div class="card">${requestTable(all.slice(0, 8), [COL.ticket, COL.category, COL.title, COL.status, COL.date], "#/manage/")}</div>`);
-  }
-
-  function viewPlaceholder(title, text) {
-    render(`<div class="page-head"><h1>${title}</h1></div><div class="card empty">${text}</div>`);
+      <div class="card">${requestTable(all.slice(0, 8), [COL.ticket, COL.category, COL.title, COL.requester, COL.status, COL.date], "#/manage/")}</div>`);
   }
 
   async function viewUsers() {
+    const users = await api.users();
     render(`<div class="page-head"><h1>Users</h1></div><div class="card"><div class="table-wrap"><table>
-      <thead><tr><th>Name</th><th>Email</th><th>Role</th></tr></thead>
-      <tbody>${USERS.map(u => `<tr><td>${esc(u.name)}</td><td class="muted">${esc(u.email || "—")}</td><td>${esc(u.role)}</td></tr>`).join("")}</tbody></table></div></div>
-      <p class="muted" style="margin-top:12px">Sample users. These will come from the Users table once a users endpoint is added.</p>`);
+      <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th></tr></thead>
+      <tbody>${users.map(u => `<tr><td>${esc(u.fullName)}</td><td class="muted">${esc(u.email)}</td><td>${esc(u.role)}</td><td class="muted">${fmtDate(u.createdAt)}</td></tr>`).join("") || `<tr><td colspan="4" class="empty">No users yet.</td></tr>`}</tbody></table></div></div>
+      <p class="muted" style="margin-top:12px">New sign-ups are Requesters. To make someone Staff or a Manager, update their Role in the Users table.</p>`);
   }
 
-  // ---------- Router ----------
-  function render(inner) { $("#app").innerHTML = shell(inner); bindShell(); bindRows(); window.scrollTo(0, 0); }
+  const viewPlaceholder = (title, text) => render(`<div class="page-head"><h1>${title}</h1></div><div class="card empty">${text}</div>`);
 
+  // ---------- Router ----------
   const ACCESS = {
     "dashboard": ["Requester"], "my-requests": ["Requester"], "submit": ["Requester"], "request": ["Requester", "Staff", "Manager"],
     "queue": ["Staff", "Manager"], "assignments": ["Staff"], "manage": ["Staff", "Manager"], "reports": ["Staff", "Manager"],
@@ -568,19 +475,21 @@
 
   async function route() {
     const [, page = "", param] = location.hash.split("/");
-    if (page === "register") return session.user ? (location.hash = HOME[session.user.role]) : viewRegister();
-    if (!session.user || page === "login" || !page) {
-      if (session.user && !page) { location.hash = HOME[session.user.role]; return; }
-      if (!session.user) return viewLogin();
-      return viewLogin();
+    if (!/^#\/(request|manage)\//.test(location.hash)) viewDetails.tab = null;
+
+    if (!session.user || !session.user.userId) {
+      session.user = null;
+      return page === "register" ? viewRegister() : viewLogin();
     }
-    if (!ACCESS[page] || !ACCESS[page].includes(session.user.role)) { location.hash = HOME[session.user.role]; return; }
-    if (!location.hash.startsWith("#/request/") && !location.hash.startsWith("#/manage/")) viewDetails.tab = null;
+    if (page === "login" || page === "register" || !page || !ACCESS[page] || !ACCESS[page].includes(role())) {
+      location.hash = HOME[role()]; return;
+    }
+    loading();
     try {
       switch (page) {
         case "dashboard": return await viewRequesterDashboard();
         case "my-requests": return await viewMyRequests();
-        case "submit": return viewSubmit();
+        case "submit": return await viewSubmit();
         case "request": return await viewDetails(Number(param), false);
         case "manage": return await viewDetails(Number(param), true);
         case "queue": return await viewQueue(false);
@@ -588,16 +497,13 @@
         case "management": return await viewManagement();
         case "users": return await viewUsers();
         case "reports": return viewPlaceholder("Reports", "Exportable reports will appear here once a reporting endpoint is added.");
-        case "analytics": return viewPlaceholder("Analytics", "Trends over time will appear here once request history can be queried from the API.");
+        case "analytics": return viewPlaceholder("Analytics", "Trends over time will appear here in a later milestone.");
       }
     } catch (err) {
       render(`<div class="card empty">${esc(err.message || "Something went wrong.")}</div>`);
     }
   }
 
-  window.addEventListener("hashchange", () => { if (!/^#\/(request|manage)\//.test(location.hash)) viewDetails.tab = null; route(); });
-  api.probe().then(() => {
-    if (api.mode === "demo") USERS.push(...[{ id: 5, name: "Lerato Dube", role: "Requester" }, { id: 6, name: "Peter Naidoo", role: "Requester" }].filter(u => !USERS.some(x => x.id === u.id)));
-    route();
-  });
+  window.addEventListener("hashchange", route);
+  route();
 })();
