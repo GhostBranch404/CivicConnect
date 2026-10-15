@@ -1,103 +1,71 @@
 # CivicConnect
 
-**SEN381 Project – Community Service Request Management Platform**
+**SEN381 — Community Service Request Management Platform**
 
-CivicConnect is a controlled digital platform for submitting, tracking, assigning and resolving community service requests with engineering traceability.
+CivicConnect is a web application for submitting, tracking, assigning and resolving community service requests. The project is being developed as a working application; Milestone 3 is a checkpoint, not the end of implementation.
 
-## Current M3 working baseline
+## Current project position
 
-- C# / ASP.NET Core Web API
-- 3-tier layered monolith
-- MySQL hosted through Aiven
-- Dapper + MySqlConnector
-- Controller → Service → Repository → Database
-- Request history and database-backed developer/application logging
+- **Backend:** C# / ASP.NET Core Web API on .NET 9
+- **Architecture:** 3-tier layered monolith — Controller → Service → Repository
+- **Persistence:** MySQL with Dapper and MySqlConnector
+- **Schema management:** Version-controlled SQL migration scripts
+- **Application hosting target:** Azure App Service (`civicconnect1`)
+- **Hosted database provider:** Aiven for MySQL is the current documented choice; a successful deployed connection still needs to be evidenced.
+- **Current release status:** **Not production-ready.** On 15 October 2026, the Azure site returned 404 for `/` and `/swagger`. The published .NET files and a process listening on port 8080 were observed, but a successful homepage/API/database operation has not yet been recorded as release evidence.
 
-## Project status
+## Why these technologies?
 
-CivicConnect is currently in Milestone 3 development; implementation continues beyond this milestone toward the final working application.
+| Decision | Reason | Trade-off / condition |
+|---|---|---|
+| **MySQL (relational)** | Requests, users, categories, statuses, assignments and history have defined relationships. Foreign keys, unique constraints and transactions help protect consistency. | Schema changes need controlled migrations; queries and mappings need tests. |
+| **Dapper + MySqlConnector** | Keeps SQL explicit and fits the repository code already in the project without an ORM migration. | The team must maintain SQL, mappings, transactions and concurrency checks itself. |
+| **Aiven for MySQL (documented choice)** | Managed MySQL reduces the server administration the student team must do and leaves the application on the same database engine. | Plan limits, TLS/connection settings, costs, backups and a real application connection must be verified. A provider choice is not proof that deployment works. |
+| **Azure App Service (hosting target)** | Managed hosting for the existing ASP.NET Core application, with GitHub Actions deployment and Azure monitoring options. | Deployment must be tied to the intended branch/commit and verified using real HTTP and database checks. The current 404 is still an open blocker. |
+| **Layered monolith** | A small team can build and test one deployable application while keeping HTTP, business rules and SQL separate. | Boundaries must be maintained; microservices would add deployment and operational overhead without a current need. |
 
-Implemented or in progress:
-- Service request submission
-- Request retrieval and status updates
-- MySQL persistence using Dapper
-- Request history logging
-- Developer/application logging
-- Basic database transaction and concurrency handling
+A document database was considered, but is not the best fit for the current core workflow: many records reference other records, status changes must be consistent, and the system needs history and reporting. MySQL is a project-fit decision, not a claim that document databases are generally inferior.
 
-Still in progress:
-- Authentication and Role-Based Access Control
-- Staff assignment workflow
-- Management dashboard
-- Full verification and testing
-- Production hosting and deployment
+## Main features and intended roles
 
-## Database hosting
+- **Requester:** submit a request and follow its progress.
+- **Staff:** access the work queue and manage request progress/assignments.
+- **Management:** view oversight and reporting information.
 
-- Provider: Aiven for MySQL.
-- Database engine remains MySQL; the provider change does not change the relational schema or Dapper/MySqlConnector approach.
-- Store connection strings and credentials in environment variables or deployment secrets. Never commit database credentials to the repository.
-- Confirm connection access, migrations, backup/restore, plan limits and costs before production use.
-
-## User roles
-
-- **Requester** – submits requests and views their own request progress.
-- **Staff** – manages, assigns and updates service requests.
-- **Management** – views higher-level request and performance information.
-
-## Core features
-
-- Submit a service request
-- Generate and track a unique ticket
-- View request history and status
-- Assign requests to staff
-- Update progress and resolution information
-- Record request history
-- Record selected developer/application logs
-- Provide management oversight through a dashboard
+The current API includes request creation, collection/detail retrieval and status updates. Authentication/RBAC, assignment, management reporting and the full user experience remain work to complete or verify. Do not treat a documented requirement or test method as proof that a feature is finished.
 
 ## Architecture
 
-CivicConnect follows a 3-tier layered structure:
-
 ```text
-Controller
-    ↓
-Service
-    ↓
-Repository
-    ↓
-Dapper / MySqlConnector
-    ↓
+HTTP / UI
+   ↓
+RequestController
+   ↓
+RequestService (validation and workflow rules)
+   ↓
+IRequestRepository / RequestRepository
+   ↓
+Dapper + MySqlConnector
+   ↓
 MySQL
 ```
 
-This keeps request handling, business rules and database access separated.
+Request history (`RequestHistory`) records business lifecycle events. `DeveloperLogs` records selected technical/application events for troubleshooting. They have different purposes and should not be treated as interchangeable.
 
-## Repository structure
+## Repository guide
 
-```text
-src/
-└── CivicConnect/
-    ├── Controllers/
-    ├── Data/
-    ├── Models/
-    ├── Services/
-    └── database/
-        └── migrations/
-Tests/
-└── CivicConnect.Tests/
-src/docs/
-└── adr/
-```
-
-## Prerequisites
-
-- .NET 9 SDK
-- MySQL development database
-- Git
+- `src/CivicConnect/Controllers/` — HTTP endpoints
+- `src/CivicConnect/Services/` — business rules and service operations
+- `src/CivicConnect/Data/` — repository interfaces and SQL persistence
+- `src/CivicConnect/Models/` — request, history and log models
+- `src/CivicConnect/database/migrations/001_initial_schema.sql` — initial schema and reference seed data
+- `Tests/CivicConnect.Tests/` — unit, integration and persistence test code
+- `src/docs/adr/` — architecture decision records
+- `CivicConnect_PED_M3.md` — milestone engineering document
 
 ## Local setup
+
+Prerequisites: .NET 9 SDK, Git and a MySQL instance.
 
 ```bash
 git clone https://github.com/GhostBranch404/CivicConnect.git
@@ -105,11 +73,9 @@ cd CivicConnect
 dotnet restore CivicConnect.sln
 ```
 
-Provide `ConnectionStrings:DefaultConnection` through ASP.NET User Secrets or environment variables.
+Configure `ConnectionStrings:DefaultConnection` with .NET User Secrets or an environment variable. Never commit real credentials.
 
-Do **not** commit real database credentials.
-
-Example User Secrets setup:
+For local development secrets:
 
 ```bash
 cd src/CivicConnect
@@ -117,32 +83,31 @@ dotnet user-secrets init
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost;Port=3306;Database=CivicConnect;User=YOUR_USER;Password=YOUR_PASSWORD;"
 ```
 
-## Database setup
+Apply the schema to the intended development database using a MySQL client:
 
-Apply the SQL migration in order:
-
-```text
-src/CivicConnect/database/migrations/001_initial_schema.sql
+```bash
+mysql -h localhost -P 3306 -u YOUR_USER -p CivicConnect < src/CivicConnect/database/migrations/001_initial_schema.sql
 ```
 
-The initial schema creates the request, reference, assignment, history, comment and developer-log tables and seeds the initial request statuses/categories.
-
-## Run
+Then run:
 
 ```bash
 dotnet run --project src/CivicConnect
 ```
 
-When running in Development, Swagger is enabled for the Web API.
+Swagger is configured for the Development environment. The application also maps `GET /health`; this endpoint reports application health and should not by itself be taken as proof that database writes succeed.
 
-## API endpoints (backend)
+## API surface currently defined
 
-- `POST /api/requests`
-- `GET /api/requests`
-- `GET /api/requests/{id}`
-- `PATCH /api/requests/{id}/status`
+| Method | Route | Purpose |
+|---|---|---|
+| `POST` | `/api/requests` | Create a service request |
+| `GET` | `/api/requests` | Retrieve requests |
+| `GET` | `/api/requests/{id}` | Retrieve one request |
+| `PATCH` | `/api/requests/{id}/status` | Update status with actor and expected version |
+| `GET` | `/health` | Application health endpoint |
 
-Status updates require:
+Example status update:
 
 ```json
 {
@@ -153,90 +118,56 @@ Status updates require:
 }
 ```
 
-HTTP behavior:
-- `201 Created` on successful request creation
-- `400 BadRequest` for invalid payloads and invalid foreign-key references
-- `404 NotFound` when a request does not exist
-- `409 Conflict` for duplicate tickets and concurrency conflicts
+These routes are defined in source code; their deployed availability must be checked against the current Azure release.
 
-## Staging setup (Docker Compose)
+## Local staging stack
 
-Run isolated staging services (API + MySQL):
+The repository contains a Docker Compose stack for an isolated API + MySQL environment:
 
 ```bash
 docker compose -f docker-compose.staging.yml up --build
 ```
 
-Staging stack details:
-- MySQL is isolated from local test and production data
-- Schema is initialized from `src/CivicConnect/database/migrations/001_initial_schema.sql`
-- API health endpoint: `GET /health`
-- API base URL (compose): `http://localhost:8080`
+It maps the API to `http://localhost:8080` and the local MySQL port to `3307`. The Compose file currently contains development-only example credentials; replace them with environment-supplied values before using it outside a disposable local environment. Docker Compose staging is separate from the Azure deployment.
 
-## Testing and verification
-
-Run the full suite with a MySQL test database. Set `CIVICCONNECT_TEST_CONNECTION` to its connection string and apply `src/CivicConnect/database/migrations/001_initial_schema.sql` first:
+## Build and test
 
 ```bash
-dotnet test CivicConnect.sln
+dotnet restore CivicConnect.sln
+dotnet build CivicConnect.sln --configuration Release
+dotnet test CivicConnect.sln --configuration Release
 ```
 
-Database verification also includes:
+Database-backed tests require `CIVICCONNECT_TEST_CONNECTION` to point to a test database that has the migration applied. A test method existing in source is not proof it passed; record the run result and environment.
 
-Required database persistence scenarios are verified in `Tests/CivicConnect.Tests/RequestPersistenceTests.cs`:
-1. Valid request saves/retrieves with initial status, version, history and developer log.
-2. Invalid requester fails with no partial records.
-3. Duplicate ticket is rejected while preserving the original and writing no partial duplicate records.
-4. Resolve request stores status/version, resolution notes, history and developer log.
-5. Transaction rollback is verified by forcing a related write failure after transaction start.
+The current CI workflow in `.github/workflows/ci.yml` runs on pushes and pull requests targeting `main` or `dev`, not `staging`. The Azure deployment workflow in `.github/workflows/main_civicconnect1.yml` deploys on pushes to `main` or manual dispatch. A commit on `staging` is therefore not automatically proof of what is running in Azure.
 
-API integration behavior is verified in `Tests/CivicConnect.Tests/Integration/RequestApiIntegrationTests.cs` with strict expected responses (no permissive status assertions).
+## Release evidence still required
 
-## Request status update body
+- [ ] Confirm the actual database provider/endpoint used by the deployed app without publishing credentials.
+- [ ] Apply the migration and record a successful result.
+- [ ] Create a request and verify the saved row, history and developer log.
+- [ ] Update status, reload the request and verify persistence/history/actor.
+- [ ] Run and record the relevant unit, API integration and database-backed tests.
+- [ ] Verify Azure homepage, one real API response and database connectivity.
+- [ ] Record the deployed commit SHA and successful workflow run.
+- [ ] Verify secret configuration, TLS, backups/restore and cost/plan limits.
+- [ ] Complete and verify authentication/RBAC, staff assignment and management reporting before claiming those features are ready.
 
-Status updates now include the acting user and expected concurrency version:
+## Security and team workflow
 
-```json
-{
-  "newStatus": "In Progress",
-  "changedByUserId": 2,
-  "expectedVersion": 1,
-  "notes": "Request acknowledged and work started."
-}
-```
+- Use parameterised SQL; do not concatenate user input into queries.
+- Keep credentials in User Secrets, environment variables or deployment secrets, never in source control or logs.
+- Keep business rules in services and SQL in repositories.
+- Work on a feature branch, open a pull request, request peer review and update the PED/RTM/risk register when a requirement or decision changes.
+- AI-assisted code and documentation must be reviewed by the team and verified through tests or other appropriate evidence.
 
-## Known limitations
+## Engineering decision records
 
-- Authentication and RBAC are still being finalised.
-- Production hosting has not yet been selected.
-- Backup and recovery procedures are not finalised.
-- Performance/load testing is still outstanding.
-- The user interface is still under development.
+- [ADR-001 — Layered architecture](src/docs/adr/ADR-001_architectural_style.md)
+- [ADR-002 — Technology stack and persistence](src/docs/adr/ADR-002_Tech_stack_and_persistence.md)
+- [ADR-003 — Persistence and data integrity](src/docs/adr/ADR-003_data_persistence.md)
+- [ADR-004 — Hosting and release environment](src/docs/adr/ADR-004_hosting_and_release.md)
+- [Database design](src/docs/database-design.md)
+- [SQL migration](src/CivicConnect/database/migrations/001_initial_schema.sql)
 
-## Git workflow
-
-- Do not commit substantive changes directly to `main`.
-- Use a feature branch for development work.
-- Open a Pull Request before merging.
-- Team members should review changes before they are merged.
-
-## Security notes
-
-- Do not commit passwords or database credentials.
-- Use User Secrets or environment variables for connection strings.
-- Database queries should remain parameterised.
-- Sensitive values should not be written to developer logs.
-
-## Engineering documentation
-
-- `src/docs/adr/ADR-001_architectural_style.md`
-- `src/docs/adr/ADR-002_Tech_stack_and_persistence.md`
-- `src/docs/adr/ADR-003_data_persistence.md`
-- `src/docs/database-design.md`
-- `src/docs/diagrams/CivicConnect_ERD.md`
-
-## External project documentation
-
-Project documentation workspace: Belgium Campus SharePoint: https://belgiumcampusacza-my.sharepoint.com/:f:/g/personal/601609_student_belgiumcampus_ac_za/IgCLEkD1yq6URJN_AeA2ypQ4AQFPC6EZgSYZdrtlkCiyUEU?e=XZAf1L
-
-Project/task tracking: ClickUp.
