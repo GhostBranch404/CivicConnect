@@ -86,7 +86,7 @@ dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost;
 Apply the schema to the intended development database using a MySQL client:
 
 ```bash
-mysql -h localhost -P 3306 -u YOUR_USER -p CivicConnect < src/CivicConnect/database/migrations/001_initial_schema.sql
+mysql -h localhost -P 3306 -u YOUR_USER -p CivicConnect < ../../src/CivicConnect/database/migrations/001_initial_schema.sql
 ```
 
 Then run:
