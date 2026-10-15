@@ -1,7 +1,7 @@
 # ADR-003: CivicConnect Persistence and Data-Integrity Strategy
 
 ## Status
-Proposed for M2 baseline
+Accepted as the current persistence design; execution evidence remains outstanding
 
 ## Context
 CivicConnect stores service requests, requester details, controlled categories and statuses, assignments, request history and developer/application logs. Several business operations require more than one database write. For example, creating a request should also create an initial history entry and developer log. Updating status should update the request and record the change. If only part of such an operation succeeds, the database becomes inconsistent.
@@ -47,6 +47,10 @@ Creating a request:
 - Transaction and concurrency code must be implemented deliberately.
 - Dapper requires manual SQL and mapping maintenance.
 - Version-controlled SQL migrations must be maintained by the team.
+
+## Verification status
+
+The repository contains persistence implementation and test methods for create/retrieve, invalid references, duplicate tickets, transactional rollback and optimistic concurrency. The existence of these methods does not establish that they passed. Record a successful database-backed run and the relevant output before claiming the behaviour is verified. The current hosted provider connection and live migration result also remain to be evidenced.
 
 ## Evidence
 - `../../CivicConnect/database/migrations/001_initial_schema.sql`

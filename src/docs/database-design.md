@@ -2,7 +2,8 @@
 
 **Document type:** Database / Persistence Design  
 **Project:** CivicConnect – Community Service Request Management Platform  
-**Milestone:** Milestone 2  
+**Milestone:** M2 design baseline, reviewed for M3
+**Review status:** Design documented; live migration/provider verification still outstanding  
 **Persistence baseline:** MySQL + Dapper + MySqlConnector  
 **Owner:** Jaco – Database/Persistence Lead  
 
@@ -10,7 +11,7 @@
 
 ## 1. Purpose
 
-This document defines the M2 database and persistence baseline for CivicConnect. It converts the project requirements and Assignment 2 persistence research into a concrete relational design that can be implemented, reviewed and verified in the repository.
+This document records the M2 database design and its M3 implementation review. The schema and persistence approach remain MySQL + Dapper + MySqlConnector. Aiven is the current documented hosted-MySQL choice, while Azure App Service is the application-hosting target; neither choice is considered verified until the deployed app successfully connects and completes a database-backed operation.
 
 The database must support the core request lifecycle:
 
@@ -83,6 +84,34 @@ The previously exported PNG remains supporting visual evidence. The updated ERD 
 | `DeveloperLogs` | Application/developer trace events required for engineering visibility and troubleshooting. |
 
 ---
+
+
+
+## 5.1 Schema implementation snapshot (checked against the SQL migration)
+
+The source of truth for the current schema is [`001_initial_schema.sql`](../CivicConnect/database/migrations/001_initial_schema.sql). The table below summarises the constraints and indexes actually declared in that file; it is not a substitute for capturing the live database after the migration is run.
+
+| Table | Primary key | Foreign keys | Unique constraints | Declared secondary indexes |
+|---|---|---|---|---|
+| `Users` | `UserId` | None | `Email` | None explicitly declared |
+| `Categories` | `CategoryId` | None | `CategoryName` | None explicitly declared |
+| `RequestStatuses` | `StatusId` | None | `StatusName` | None explicitly declared |
+| `ServiceRequests` | `RequestId` | `RequesterId → Users.UserId`; `CategoryId → Categories.CategoryId`; `StatusId → RequestStatuses.StatusId` | `TicketNumber` | `RequesterId`, `CategoryId`, `StatusId`, `RequestDate` |
+| `Assignments` | `AssignmentId` | `RequestId → ServiceRequests.RequestId`; `StaffUserId → Users.UserId` | None explicitly declared | `RequestId`, `StaffUserId`, composite `(RequestId, IsCurrent)` |
+| `RequestComments` | `CommentId` | `RequestId → ServiceRequests.RequestId`; `UserId → Users.UserId` | None explicitly declared | `RequestId` |
+| `RequestHistory` | `HistoryId` | `RequestId → ServiceRequests.RequestId`; `ChangedByUserId → Users.UserId`; `OldStatusId/NewStatusId → RequestStatuses.StatusId` | None explicitly declared | `RequestId`, composite `(RequestId, ChangedAt)` |
+| `DeveloperLogs` | `LogId` | Nullable `RequestId → ServiceRequests.RequestId` | None explicitly declared | `RequestId`, `LoggedAt`, `Severity` |
+
+All tables also have NOT NULL requirements on the columns declared `NOT NULL` in the migration. The current schema does not declare a database-level rule limiting a user to one current assignment per request; if that invariant is required, implement and test it deliberately rather than assuming the current composite index enforces uniqueness.
+
+## 5.2 Provider and configuration
+
+- **Database engine:** MySQL.
+- **Current documented hosted provider:** Aiven for MySQL, pending verification of the actual connection used by the running app.
+- **Application host:** Azure App Service (`civicconnect1`) is the current deployment target; it is separate from the database provider.
+- **Configuration:** the application reads `ConnectionStrings:DefaultConnection`. Supply it through local .NET User Secrets or environment/deployment settings. Do not commit connection strings or include them in logs.
+- **Verification still required:** record the migration result, TLS/network settings, successful application connection and a create/read/status-update operation with related history and developer-log rows. Record evidence metadata and links, never secret values.
+
 
 ## 6. Data Dictionary
 
