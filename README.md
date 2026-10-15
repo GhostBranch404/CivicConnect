@@ -59,6 +59,7 @@ Request history (`RequestHistory`) records business lifecycle events. `Developer
 - `src/CivicConnect/Data/` — repository interfaces and SQL persistence
 - `src/CivicConnect/Models/` — request, history and log models
 - `src/CivicConnect/database/migrations/001_initial_schema.sql` — initial schema and reference seed data
+- `src/CivicConnect/database/migrations/002_user_registration_confirmation.sql` — registration and contact-confirmation fields
 - `Tests/CivicConnect.Tests/` — unit, integration and persistence test code
 - `src/docs/adr/` — architecture decision records
 - `CivicConnect_PED_M3.md` — milestone engineering document
@@ -87,7 +88,10 @@ Apply the schema to the intended development database using a MySQL client:
 
 ```bash
 mysql -h localhost -P 3306 -u YOUR_USER -p CivicConnect < ../../src/CivicConnect/database/migrations/001_initial_schema.sql
+mysql -h localhost -P 3306 -u YOUR_USER -p CivicConnect < ../../src/CivicConnect/database/migrations/002_user_registration_confirmation.sql
 ```
+
+Configure SMTP settings under `Email` and Twilio credentials under `Sms` using User Secrets or environment variables (for example, `Email__Password` and `Sms__AuthToken`). Keep real credentials out of source control. ASP.NET Core Data Protection keys must persist across restarts and be shared between app instances in a multi-instance deployment; configure a persistent, protected key ring before deploying confirmation flows.
 
 Then run:
 
@@ -105,7 +109,31 @@ Swagger is configured for the Development environment. The application also maps
 | `GET` | `/api/requests` | Retrieve requests |
 | `GET` | `/api/requests/{id}` | Retrieve one request |
 | `PATCH` | `/api/requests/{id}/status` | Update status with actor and expected version |
+| `POST` | `/api/auth/register` | Create a requester account and send an email or SMS confirmation code |
+| `POST` | `/api/auth/confirm` | Confirm an account using its destination and code |
+| `POST` | `/api/auth/resend-confirmation` | Resend a code for an unconfirmed account |
 | `GET` | `/health` | Application health endpoint |
+
+Registration accepts `FullName`, `Password` (at least 10 characters), `ConfirmationMethod` (`Email` or `Sms`), and either `Email` or `PhoneNumber` (E.164 format, such as `+15551234567`). Confirmation codes expire after 10 minutes; a code can be tried five times before it must be resent. Signup and code endpoints are rate-limited. A confirmed contact does not yet enable login or grant an authentication token.
+
+Example registration and confirmation requests:
+
+```json
+{
+  "fullName": "Aiden Example",
+  "password": "a-long-user-chosen-password",
+  "confirmationMethod": "Email",
+  "email": "aiden@example.com"
+}
+```
+
+```json
+{
+  "confirmationMethod": "Email",
+  "destination": "aiden@example.com",
+  "code": "123456"
+}
+```
 
 Example status update:
 
@@ -170,4 +198,3 @@ The current CI workflow in `.github/workflows/ci.yml` runs on pushes and pull re
 - [ADR-004 — Hosting and release environment](src/docs/adr/ADR-004_hosting_and_release.md)
 - [Database design](src/docs/database-design.md)
 - [SQL migration](src/CivicConnect/database/migrations/001_initial_schema.sql)
-

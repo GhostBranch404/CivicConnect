@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\Admin\\OneDrive\\Documents\\GitHub\\CivicConnect\\Tests\\CivicConnect.Tests\\CivicConnect.Tests.csproj": {}
+    "C:\\Users\\Admin\\source\\repos\\copilot-worktrees\\CivicConnect\\justaiden25-cuddly-meme\\Tests\\CivicConnect.Tests\\CivicConnect.Tests.csproj": {}
   },
   "projects": {
-    "C:\\Users\\Admin\\OneDrive\\Documents\\GitHub\\CivicConnect\\src\\CivicConnect\\CivicConnect.csproj": {
+    "C:\\Users\\Admin\\source\\repos\\copilot-worktrees\\CivicConnect\\justaiden25-cuddly-meme\\src\\CivicConnect\\CivicConnect.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Admin\\OneDrive\\Documents\\GitHub\\CivicConnect\\src\\CivicConnect\\CivicConnect.csproj",
+        "projectUniqueName": "C:\\Users\\Admin\\source\\repos\\copilot-worktrees\\CivicConnect\\justaiden25-cuddly-meme\\src\\CivicConnect\\CivicConnect.csproj",
         "projectName": "CivicConnect",
-        "projectPath": "C:\\Users\\Admin\\OneDrive\\Documents\\GitHub\\CivicConnect\\src\\CivicConnect\\CivicConnect.csproj",
+        "projectPath": "C:\\Users\\Admin\\source\\repos\\copilot-worktrees\\CivicConnect\\justaiden25-cuddly-meme\\src\\CivicConnect\\CivicConnect.csproj",
         "packagesPath": "C:\\Users\\Admin\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Admin\\OneDrive\\Documents\\GitHub\\CivicConnect\\src\\CivicConnect\\obj\\",
+        "outputPath": "C:\\Users\\Admin\\source\\repos\\copilot-worktrees\\CivicConnect\\justaiden25-cuddly-meme\\src\\CivicConnect\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -58,13 +58,13 @@
               "target": "Package",
               "version": "[9.0.18, )"
             },
-            "MySql.Data": {
-              "target": "Package",
-              "version": "[26.7.0, )"
-            },
             "MySqlConnector": {
               "target": "Package",
-              "version": "[2.3.5, )"
+              "version": "[2.4.0, )"
+            },
+            "Swashbuckle.AspNetCore": {
+              "target": "Package",
+              "version": "[6.6.2, )"
             }
           },
           "imports": [
@@ -90,14 +90,14 @@
         }
       }
     },
-    "C:\\Users\\Admin\\OneDrive\\Documents\\GitHub\\CivicConnect\\Tests\\CivicConnect.Tests\\CivicConnect.Tests.csproj": {
+    "C:\\Users\\Admin\\source\\repos\\copilot-worktrees\\CivicConnect\\justaiden25-cuddly-meme\\Tests\\CivicConnect.Tests\\CivicConnect.Tests.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Admin\\OneDrive\\Documents\\GitHub\\CivicConnect\\Tests\\CivicConnect.Tests\\CivicConnect.Tests.csproj",
+        "projectUniqueName": "C:\\Users\\Admin\\source\\repos\\copilot-worktrees\\CivicConnect\\justaiden25-cuddly-meme\\Tests\\CivicConnect.Tests\\CivicConnect.Tests.csproj",
         "projectName": "CivicConnect.Tests",
-        "projectPath": "C:\\Users\\Admin\\OneDrive\\Documents\\GitHub\\CivicConnect\\Tests\\CivicConnect.Tests\\CivicConnect.Tests.csproj",
+        "projectPath": "C:\\Users\\Admin\\source\\repos\\copilot-worktrees\\CivicConnect\\justaiden25-cuddly-meme\\Tests\\CivicConnect.Tests\\CivicConnect.Tests.csproj",
         "packagesPath": "C:\\Users\\Admin\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Admin\\OneDrive\\Documents\\GitHub\\CivicConnect\\Tests\\CivicConnect.Tests\\obj\\",
+        "outputPath": "C:\\Users\\Admin\\source\\repos\\copilot-worktrees\\CivicConnect\\justaiden25-cuddly-meme\\Tests\\CivicConnect.Tests\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -118,8 +118,8 @@
           "net9.0": {
             "targetAlias": "net9.0",
             "projectReferences": {
-              "C:\\Users\\Admin\\OneDrive\\Documents\\GitHub\\CivicConnect\\src\\CivicConnect\\CivicConnect.csproj": {
-                "projectPath": "C:\\Users\\Admin\\OneDrive\\Documents\\GitHub\\CivicConnect\\src\\CivicConnect\\CivicConnect.csproj"
+              "C:\\Users\\Admin\\source\\repos\\copilot-worktrees\\CivicConnect\\justaiden25-cuddly-meme\\src\\CivicConnect\\CivicConnect.csproj": {
+                "projectPath": "C:\\Users\\Admin\\source\\repos\\copilot-worktrees\\CivicConnect\\justaiden25-cuddly-meme\\src\\CivicConnect\\CivicConnect.csproj"
               }
             }
           }
@@ -140,6 +140,10 @@
         "net9.0": {
           "targetAlias": "net9.0",
           "dependencies": {
+            "Dapper": {
+              "target": "Package",
+              "version": "[2.1.89, )"
+            },
             "Microsoft.AspNetCore.Mvc.Testing": {
               "target": "Package",
               "version": "[9.0.0, )"
@@ -151,6 +155,10 @@
             "Moq": {
               "target": "Package",
               "version": "[4.21.0, )"
+            },
+            "MySqlConnector": {
+              "target": "Package",
+              "version": "[2.4.0, )"
             },
             "coverlet.collector": {
               "target": "Package",
