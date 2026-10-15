@@ -628,7 +628,7 @@ non-functional requirements will be considered:
 <td>Core API / Request Slice</td>
 <td>Inserts record into service_requests table</td>
 <td>IRequestService.RequestSubmission(), RequestController.Create()</td>
-<td>C# .NET 8, Dapper, MySQL</td>
+<td>C# .NET 9, Dapper, MySQL</td>
 <td>Controllers/RequestController.cs</td>
 <td>Implemented</td>
 </tr>
@@ -639,7 +639,7 @@ non-functional requirements will be considered:
 <td>Service Layer</td>
 <td>None</td>
 <td>Validation check for username and Request Description</td>
-<td>C# .NET 8</td>
+<td>C# .NET 9</td>
 <td>Services/RequestService.cs</td>
 <td>Implemented</td>
 </tr>
@@ -651,7 +651,7 @@ non-functional requirements will be considered:
 <td>Queries service_requests table</td>
 <td>IRequestService.GetRequestByIdAsync(),
 RequestController.GetById()</td>
-<td>C# .NET 8, Dapper, MySQL</td>
+<td>C# .NET 9, Dapper, MySQL</td>
 <td><p>Controllers/RequestController.cs</p>
 <p>Services/RequestService.cs</p>
 <p>Data/RequestRepository.cs</p></td>
@@ -664,7 +664,7 @@ RequestController.GetById()</td>
 <td>Service Layer</td>
 <td>Updates status column in service_requests</td>
 <td>IRequestService.UpdateRequestStatus()</td>
-<td>C# .NET 8</td>
+<td>C# .NET 9</td>
 <td>Services/RequestService.cs</td>
 <td>Implemented</td>
 </tr>
@@ -746,7 +746,7 @@ live database connection.</td>
 <tr class="even">
 <td>6</td>
 <td>Uncontrolled status transitions in the user request essentially
-directly transforming a service request from "Pending" to "Closed"
+directly transforming a service request from "Pending" to "Resolved"
 without a description of staff notes</td>
 <td>Medium</td>
 <td>Medium</td>
@@ -861,7 +861,7 @@ The risks below add current deployment and evidence concerns to the existing reg
   requesters which would involve the incorporation of High execution
   speeds, strong typing, and direct control over SQL queries.
 
-- **Decision:** Integrated C# language (.NET 8 Web API) into the system
+- **Decision:** Integrated C# language (.NET 9 Web API) into the system
   paired with MySQL database.
 
 - **Rationale:** For the high execution speeds integrating Dapper for
@@ -1498,7 +1498,7 @@ remain applicable. Milestone 2 expands the engineering evidence
 surrounding these requirements without replacing the approved M1
 baseline.
 
-| **Milestone 2 Item Reviewed**                                                      | **Status**   |
+| **Milestone 2 Item Reviewed (historical baseline)**                                                      | **Status**   |
 |------------------------------------------------------------------------------------|--------------|
 | **M1 baseline continuity and review**                                              | **Complete** |
 | **Updated Requirements Traceability Matrix (RTM v2.0)**                            | **Complete** |
