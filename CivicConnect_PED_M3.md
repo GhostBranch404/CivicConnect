@@ -11,7 +11,8 @@ Cornelius Greeff 601357 \| Aiden Moses 603067 \| Keegan Stroud 601609
 
 ## Table of Contents
 
-- [Milestone 3 Review of the M1 Baseline](#milestone-2-review-of-the-m1-baseline)
+- [Milestone 3 Review of the M1 and M2 Baselines](#milestone-3-review-of-the-m1-and-m2-baselines)
+- [M3 Evidence Status and Document Changes](#m3-evidence-status-and-document-changes)
 - [Project Overview](#project-overview)
 - [Business Need](#business-need)
 - [Stakeholder Analysis](#stakeholder-analysis)
@@ -52,7 +53,7 @@ Cornelius Greeff 601357 \| Aiden Moses 603067 \| Keegan Stroud 601609
 - [References](#references)
 
 
-# Milestone 3 Review of the M1 Baseline
+# Milestone 3 Review of the M1 and M2 Baselines
 
 The approved Milestone 1 baseline was reviewed before the addition of
 the Milestone 2 architecture, technology and design decisions. The
@@ -887,7 +888,7 @@ General Assumptions and Dependencies
 | AD-005 | The initial request categories are suitable for development and early verification.                          | Current development seed values; not treated as an unchangeable stakeholder baseline. | Category changes may require migration/seed updates but should not require architectural redesign.                                                                        |
 | AD-006 | The logical Users data model will be aligned with the final authentication and RBAC implementation.          | Authentication implementation is still being developed.                               | If the chosen authentication framework manages identity differently, the current user schema may need to be mapped or adapted to prevent duplicated identity information. |
 | AD-007 | A MySQL instance will be available to team members for development and verification.                         | Required for persistence integration testing.                                         | Database unavailability would block migration verification and database-backed integration testing but should not prevent isolated service-layer development.             |
-| AD-008 | Production database hosting has not yet been finalised.                                                      | Deliberately deferred from the current M2 baseline.                                   | Availability, network access, cost, backup, recovery and deployment configuration must be reconsidered when the production environment is selected.                       |
+| AD-008 | The current documented hosted database choice is Aiven for MySQL; production suitability is not yet confirmed. | M3 provider choice for development/integration; successful deployed connectivity remains unverified. | Confirm TLS/network access, plan limits, cost, backup/restore and a successful database-backed operation before any production claim. |
 | AD-009 | Production backup, retention and recovery requirements are not yet finalised.                                | Forward engineering consideration.                                                    | The final deployment baseline must define backup frequency, retention, restore procedures, recovery ownership and acceptable recovery objectives.                         |
 | AD-010 | DeveloperLogs currently represents technical/application trace logging requested for engineering visibility. | Current interpretation used in the persistence design.                                | If lecturer clarification changes the intended meaning, the logging model and related documentation must be updated through controlled change.                            |
 
@@ -1210,7 +1211,7 @@ Connection strings and credentials must be stored in environment configuration o
 | **Amazon RDS for MySQL** | Mature managed database service; configurable capacity, backups and operational options; useful if the application is hosted on AWS. | More AWS configuration and billing options to understand; costs depend on instance, storage, backups and networking. |
 | **DigitalOcean Managed MySQL** | Managed database service with a relatively straightforward cloud setup and available cluster options. | Paid plans may be less suitable for a student budget; high availability and larger configurations increase cost. |
 
-This is a practical project-fit comparison, not a claim that one provider is universally best. Aiven is the current choice for accessible hosted MySQL and reduced administration. Current plan features, costs and limitations must be checked before deployment.
+This is a project-fit comparison, not a claim that one provider is universally best. Aiven is the current documented choice for managed MySQL and reduced administration. The actual connection from the deployed Azure app, current plan limits, TLS settings, cost and backup/restore behaviour must still be verified. Azure App Service hosts the application; it does not replace the separate database-provider decision.
 
 **Relational and non-relational database comparison**
 
@@ -1219,7 +1220,7 @@ This is a practical project-fit comparison, not a claim that one provider is uni
 | **Relational (MySQL)** | Structured tables; defined relationships and foreign keys; transactions; consistent data; suitable for joins and reporting. | Schema changes require planning; complex data structures may need additional tables and joins; horizontal scaling can require extra design. | **Best fit for the current system:** requests, users, categories, assignments, statuses, comments and history have clear relationships and need data integrity. |
 | **Non-relational (e.g. document database)** | Flexible document structures; useful for rapidly changing or semi-structured data; some systems support straightforward horizontal scaling. | Relationship enforcement and multi-record consistency may require more application logic; joins and relational reporting may be less natural; migration and query patterns differ. | Could suit a future feature with highly variable document data, but would add complexity without a clear current requirement. |
 
-The team therefore retains MySQL. The decision is based on CivicConnect's structured entities, foreign-key relationships, transaction requirements and audit/history records—not on the hosting provider. A change to a non-relational database should only be considered if future requirements justify the added design and migration effort.
+The team therefore retains MySQL. The decision is based on CivicConnect's structured entities, foreign-key relationships, transaction requirements and audit/history records—not on the hosting provider. A document database could be appropriate for a future feature with highly variable, self-contained records, but the current core workflow benefits more from relational constraints, joins and coordinated multi-table transactions. A change should require a documented requirement and migration plan.
 
 **Communication and Task Operations**
 
@@ -1245,7 +1246,7 @@ The team therefore retains MySQL. The decision is based on CivicConnect's struct
 Non-code deliverables follow the same peer-review process as pull
 requests for application code.
 
-| **Verification check**            | **Expected result**                                | **Current M2 status** |
+| **Verification check**            | **Expected result**                                | **Current M3 status** |
 |-----------------------------------|----------------------------------------------------|-----------------------|
 | dotnet restore                    | Dependencies restore successfully                  | Verified              |
 | dotnet build                      | Application compiles successfully                  | Verified              |
@@ -1467,7 +1468,7 @@ Intelligence tools to be used in the following project:
 
 | **Version** | **Date**   | **Change**                                                                                       | **Author(s)** | **Status** |
 |-------------|------------|--------------------------------------------------------------------------------------------------|---------------|------------|
-| 3.0 | 13/10/2026 | Milestone 3 working draft; changed hosted MySQL provider from Oracle to Aiven; added provider and relational/non-relational comparisons | Team | Working draft |
+| 3.1 | 15/10/2026 | Reviewed M1/M2 continuity; documented Azure/Aiven hosting rationale, release evidence gaps and M3 risk updates; aligned README and ADR-004 | Team | Working draft |
 | **0.1**     | 01/09/2026 | Initial PED created with project overview and early planning                                     | Team          | Draft      |
 | **0.2**     | 03/09/2026 | Added stakeholder analysis, project scope and initial requirements                               | Team          | Draft      |
 | **0.3**     | 07/09/2026 | Added project constraints, Risk Register, RTM and team governance                                | Team          | Review     |
@@ -1506,19 +1507,18 @@ baseline.
 
 **Baseline Decision**
 
-**Accepted** – The current foundation is accepted and the project may
-continue to the next phase.
+**M2 design baseline:** retained as the prior engineering baseline.
 
-**Conditionally Accepted** – The baseline is accepted, but the items
-listed below still need correction.
+**M3 implementation/release status:** **Conditionally accepted for continued development; not production-ready.** The team can continue implementation, but the outstanding evidence and deployment conditions above must be closed before making a release-readiness claim.
 
-**Revision Required** – Further work is required before the baseline can
-be accepted.
+**M3 outstanding items / conditions:**
 
-**Outstanding items / conditions:**
+- Azure root and `/swagger` returned 404 in the latest reported check; confirm the deployed artifact/commit and test a real API route.
+- Verify the actual deployed database connection, migration and a successful create/retrieve/status-update operation with history and developer logging.
+- Record the exact deployment SHA and workflow run; the Azure workflow currently deploys from `main`, while the CI workflow tests `main` and `dev` (not `staging`).
+- Complete and verify authentication/RBAC, staff assignment, management reporting, backup/restore and performance checks before a production-ready decision.
 
-None. All M2 baseline requirements have been reviewed and accepted by
-the team.
+The M2 design baseline remains useful, but M3 release readiness is **not yet confirmed**. These conditions are evidence gaps, not claims that the relevant code is absent.
 
 **Team Approval**
 
