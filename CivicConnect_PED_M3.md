@@ -1261,6 +1261,118 @@ requests for application code.
 
 # Initial Persistence Verification table
 
+#Test Cases
+
+## Database and persistence test cases
+
+**Test file:** `Tests/CivicConnect.Tests/RequestPersistenceTests.cs`
+
+### DB-01 -- Create and retrieve a valid service request
+
+-   **Action:** Create a service request using a valid requester and
+    category, then retrieve it by its ID.
+-   **Expected result:** The request is saved and retrieved with the
+    correct ticket number and requester. Its initial status is
+    `Pending`, its version is `1`, a `RequestCreated` record exists in
+    `RequestHistory`, and a `CREATE` record exists in `DeveloperLogs`.
+
+### DB-02 -- Reject a request with an invalid requester
+
+-   **Action:** Attempt to create a request using a requester ID that
+    does not exist.
+-   **Expected result:** The database operation fails because the
+    requester reference is invalid. No service-request record is left
+    behind for that ticket; the failed operation must not leave partial
+    request data.
+
+### DB-03 -- Reject a duplicate ticket number
+
+-   **Action:** Create one request, then attempt to create a second
+    request using the same ticket number.
+-   **Expected result:** The second insert fails. Only one service
+    request exists for that ticket, and the original request's
+    creation-history and developer-log records remain present.
+
+### DB-04 -- Resolve a request and verify related records
+
+-   **Action:** Change a request's status from `Pending` to `Resolved`,
+    supplying the expected version and resolution notes.
+-   **Expected result:** The update succeeds. The request has status
+    `Resolved` and version `2`; `RequestHistory` contains the
+    status-change record with the resolution notes; and `DeveloperLogs`
+    contains an `UPDATE_STATUS` record.
+
+### DB-05 -- Roll back a status update if a related database write fails
+
+-   **Action:** Attempt a status update using an invalid user ID so that
+    a related write fails during the operation.
+-   **Expected result:** The operation fails and the transaction rolls
+    back. The request remains `Pending` at version `1`, with no new
+    `StatusChanged` history record and no `UPDATE_STATUS` developer-log
+    record from the failed update.
+
+### DB-06 -- Retrieve all saved requests
+
+-   **Action:** Create a service request and call the repository method
+    that retrieves all requests.
+-   **Expected result:** The returned collection includes the request
+    that was just saved.
+
+### DB-07 -- Reject an unknown status value
+
+-   **Action:** Attempt to update a request to a status name that does
+    not exist, such as `No Such Status`.
+-   **Expected result:** The operation throws an `ArgumentException`.
+    The request's status ID and version remain unchanged.
+
+### DB-08 -- Reject a status update based on an outdated version
+
+-   **Action:** Update a request once using version `1`, then attempt a
+    second update while still claiming the expected version is `1`.
+-   **Expected result:** The second update is rejected as stale. The
+    latest saved status (`In Progress`) and version (`2`) are preserved
+    rather than being overwritten by the outdated update.
+
+### DB-09 -- Save a request-history record
+
+-   **Action:** Add a `StatusChanged` history record for an existing
+    request, including the old and new status IDs, user, timestamp, and
+    notes.
+-   **Expected result:** A matching row is stored in `RequestHistory`
+    with the supplied status IDs and notes.
+
+## API integration test cases
+
+**Test file:**
+`Tests/CivicConnect.Tests/Integration/RequestApiIntegrationTests.cs`
+
+### API-01 -- Create a request through the API and retrieve it
+
+-   **Action:** Send a `POST` request to `/api/requests`, then use the
+    returned request ID to send a `GET` request to `/api/requests/{id}`.
+-   **Expected result:** The create endpoint returns HTTP `201 Created`
+    and a valid request ID. The retrieval endpoint returns HTTP
+    `200 OK`, and the saved request contains the submitted title.
+
+### API-02 -- Retrieve the request collection
+
+-   **Action:** Send a `GET` request to `/api/requests`.
+-   **Expected result:** The API returns HTTP `200 OK`.
+
+### API-03 -- Request a service request that does not exist
+
+-   **Action:** Send a `GET` request to `/api/requests/999999`.
+-   **Expected result:** The API returns HTTP `404 Not Found`.
+
+### API-04 -- Update a request's status through the API
+
+-   **Action:** Create a request, then send a `PATCH` request to
+    `/api/requests/{id}/status` to change the status to `In Progress`,
+    using the current expected version and a valid user ID.
+-   **Expected result:** The API returns HTTP `200 OK`. Checking the
+    database confirms that the status is `In Progress` and the version
+    has increased from `1` to `2`.
+
 # Agile Development Methodology
 
 The creation and execution process to develop a CivicConnect management
@@ -1344,6 +1456,12 @@ Intelligence tools to be used in the following project:
 | 30/09/2026 | Keegan Stroud    | ChatGpt   | wireframes                                                                            | Used chatGPT to neaten up the wireframes                                                                                                                                                          | Double checked what the ai did                                                                                                                                                                 |
 | 30/09/2026 | Cornelius Greeff | Deepseek  | AI Image Generation                                                                   | Used to refine the visual presentation of the CivicConnect ERD based on the team-defined database schema and relationships.                                                                       | Final ERD was manually reviewed against the database schema to confirm entities, attributes, PK/FK relationships and cardinalities were represented correctly.                                 |
 | 30/09/2026 | Keegan Stroud    | ChatGpt   | Ci pipeline                                                                           | Used ChatGPT to advide on what a CI pipeline was and how they work                                                                                                                                | Modified the example code that the ai gave me to fit the project                                                                                                                               |
+| 10/10/2026 | Aiden Moses | Gemini AI | Assistance in the guidance for the Test cases, aiding in providing which test case should be applied to the system | Used Gemini to aid on what test cases should be implemented | Reviewed and verified by the group members |
+| 10/10/2026 | Aiden Moses | Gemini AI | Assistance for the creation of web API for the system | Used Gemini as a guide on how to create the API | Reviewed and verified by the group members |
+| 10/10/2026 | Aiden Moses | Git Copilot | Assistance in resolving merge conflicts so that the branch can be merged into the main | Used Git copilot to resolve merge conflicts | Reviewed and verified by the group members |
+| 13/10/2026| Aiden Moses | Gemini AI | Assistance for the creation of 2 additional test cases for the system | Used Gemini as a guide on which test cases should be implemented | Reviewed and verified by the group members |
+| 13/10/2026| Aiden Moses | Git Copilot | Assistance for the creation of 3 additional test cases for the system including white-box, black-box and persistence test cases | Used Git copilot as a guide on how to implement these test cases | Reviewed and verified by the group members |
+| 13/10/2026 | Aiden Moses | Git Copilot | Assistance in resolving merge conflicts so that the branch can be merged into the main | Used Git copilot to resolve merge conflicts | Reviewed and verified by the group members |
 
 # Document control/version history 
 
