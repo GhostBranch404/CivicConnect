@@ -585,8 +585,8 @@ non-functional requirements will be considered:
 | FR-008         | Request communication and traceable history            | C# Request Management and Audit/History Components     | Functional and Integration Test      | Added M2    |
 | FR-009         | Application troubleshooting and technical traceability | C# Developer Logging Component and MySQL               | Integration and Logging Verification | Added M2    |
 | FR-002.1       | Validation for Status Transition                       | C# Service Layer (RequestService.cs)                   | Unit Testing (CivicConnect.Tests)    | Added M3   | 
-| NFR-003        | Audit Trail Logging                                    | C# Audit History Service and MySQL                     | Integration and Unit Testing         | Added M3|    
-| NFR-005        | Addition for protecting to avoid concurrency conflict  | C# Repository Version Check                            | Concurrency Test Suite               | Added M3    |     
+| NFR-003        | Audit Trail Logging                                    | C# Audit History Service and MySQL                     | Integration and Unit Testing         | Added M3  |    
+| NFR-005        | Addition for protecting to avoid concurrency conflict  | C# Repository Version Check                            | Concurrency Test Suite               | Added M3  |     
 
 | Requirement ID | Business needs                                               | Architecture Component                                     | Validation Method                               | Status      |
 |----------------|--------------------------------------------------------------|------------------------------------------------------------|-------------------------------------------------|-------------|
