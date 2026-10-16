@@ -585,11 +585,14 @@ non-functional requirements will be considered:
 | FR-008         | Request communication and traceable history            | C# Request Management and Audit/History Components     | Functional and Integration Test      | Added M2    |
 | FR-009         | Application troubleshooting and technical traceability | C# Developer Logging Component and MySQL               | Integration and Logging Verification | Added M2    |
 | FR-002.1       | Validation for Status Transition                       | C# Service Layer (RequestService.cs)                   | Unit Testing (CivicConnect.Tests)    | Added M3   | 
+| FR-010         | Traceability between requirements and verification activities | Requirements Traceability Matrix (RTM) | Requirement-to-Test Case Mapping and Coverage Review | Added M3 |
 | NFR-003        | Audit Trail Logging                                    | C# Audit History Service and MySQL                     | Integration and Unit Testing         | Added M3  |    
 | NFR-005        | Addition for protecting to avoid concurrency conflict  | C# Repository Version Check                            | Concurrency Test Suite               | Added M3  | 
 | **NFR-001** | Role-based data access security | Requesters must be blocked from viewing tickets belonging to other users. | `RequestService.GetRequestForUserAsync` | `GetRequestById_UnauthorizedRequester_ThrowsUnauthorizedAccessException` | Passed via authorization test | Implemented & Verified |
 | **NFR-002** | Responsive system performance | Dashboard renders under load; CI builds execute automated checks. | GitHub Actions Workflow (`ci.yml`) | CI Build & xUnit Test Run Job | Green build status on GitHub repository | Implemented & Verified |
 | **NFR-006** | Maintainable separation of responsibilities| Controllers must not contain direct SQL; persistence isolated via repositories | Controllers, Services, Repository Layer | Architecture Review & Unit Test Suite | Verified via solution build (`dotnet build`) | Implemented & Verified |
+| NFR-007 | Verification coverage and requirement validation | Requirements Traceability Matrix (RTM) | Traceability Review and Test Evidence Verification | Added M3 |
+| NFR-008 | Consistent alignment between requirements, implementation, and testing | RTM linked to System Components and Test Cases | Cross-Reference Review and Verification of Test Results | Added M3 |
 
 | Requirement ID | Business needs                                               | Architecture Component                                     | Validation Method                               | Status      |
 |----------------|--------------------------------------------------------------|------------------------------------------------------------|-------------------------------------------------|-------------|
