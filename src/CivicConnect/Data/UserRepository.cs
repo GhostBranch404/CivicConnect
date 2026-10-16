@@ -48,56 +48,104 @@ public sealed class UserRepository : IUserRepository, IUserConfirmationRepositor
         return await connection.ExecuteScalarAsync<int>(sql, user);
     }
 
-    public async Task<int> CreatePendingUserAsync(CivicUser user)
+    // ---------- Email confirmation (sign-up) ----------
+    // Only Email, EmailConfirmed and the ConfirmationCode* columns are used. PhoneNumber,
+    // PhoneNumberConfirmed and ConfirmationMethod are not touched, so they can be dropped.
+
+    private const string ConfirmationColumns = @"
+        UserId, FullName, Email, PasswordHash, Role, IsActive, EmailConfirmed,
+        ConfirmationCodeProtected, ConfirmationCodeExpiresAt, ConfirmationAttempts";
+
+    // An unconfirmed self sign-up: never activated, never confirmed, and has a code.
+    private const string IsPendingSql =
+        "IsActive = FALSE AND EmailConfirmed = FALSE AND ConfirmationCodeProtected IS NOT NULL";
+
+    public async Task<int> CreatePendingUserAsync(CivicUser user, Func<Task> deliverCode)
     {
         await using var connection = new MySqlConnection(_connectionString);
-        const string sql = @"
-            INSERT INTO Users
-                (FullName, Email, PhoneNumber, PasswordHash, Role, IsActive,
-                 EmailConfirmed, PhoneNumberConfirmed, ConfirmationMethod,
-                 ConfirmationCodeProtected, ConfirmationCodeExpiresAt, ConfirmationAttempts, CreatedAt)
-            VALUES
-                (@FullName, @Email, @PhoneNumber, @PasswordHash, @Role, FALSE,
-                 FALSE, FALSE, @ConfirmationMethod,
-                 @ConfirmationCodeProtected, @ConfirmationCodeExpiresAt, 0, UTC_TIMESTAMP());
-            SELECT LAST_INSERT_ID();";
+        await connection.OpenAsync();
+        await using var transaction = await connection.BeginTransactionAsync();
+        try
+        {
+            // Locks the row (or the gap where it would go) so two sign-ups for one email can't race.
+            var existing = await connection.QuerySingleOrDefaultAsync<CivicUser>(
+                $"SELECT {ConfirmationColumns} FROM Users WHERE Email = @Email FOR UPDATE;",
+                new { user.Email },
+                transaction);
 
-        return await connection.ExecuteScalarAsync<int>(sql, user);
+            int userId;
+            if (existing is null)
+            {
+                userId = await connection.ExecuteScalarAsync<int>(@"
+                    INSERT INTO Users
+                        (FullName, Email, PasswordHash, Role, IsActive, EmailConfirmed,
+                         ConfirmationCodeProtected, ConfirmationCodeExpiresAt, ConfirmationAttempts, CreatedAt)
+                    VALUES
+                        (@FullName, @Email, @PasswordHash, @Role, FALSE, FALSE,
+                         @ConfirmationCodeProtected, @ConfirmationCodeExpiresAt, 0, UTC_TIMESTAMP());
+                    SELECT LAST_INSERT_ID();",
+                    user,
+                    transaction);
+            }
+            else if (existing.IsPendingConfirmation)
+            {
+                // Signing up again before confirming: replace the old details and code.
+                userId = existing.UserId;
+                await connection.ExecuteAsync($@"
+                    UPDATE Users
+                    SET FullName = @FullName,
+                        PasswordHash = @PasswordHash,
+                        ConfirmationCodeProtected = @ConfirmationCodeProtected,
+                        ConfirmationCodeExpiresAt = @ConfirmationCodeExpiresAt,
+                        ConfirmationAttempts = 0
+                    WHERE UserId = @UserId AND {IsPendingSql};",
+                    new
+                    {
+                        UserId = userId,
+                        user.FullName,
+                        user.PasswordHash,
+                        user.ConfirmationCodeProtected,
+                        user.ConfirmationCodeExpiresAt
+                    },
+                    transaction);
+            }
+            else
+            {
+                throw new AccountAlreadyExistsException();
+            }
+
+            // Send the email while the transaction is still open. If it fails, roll back so no
+            // account is left behind.
+            await deliverCode();
+
+            await transaction.CommitAsync();
+            user.UserId = userId;
+            return userId;
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
-    public async Task<CivicUser?> FindByConfirmationDestinationAsync(string method, string destination)
+    public async Task<CivicUser?> FindByEmailAsync(string email)
     {
         await using var connection = new MySqlConnection(_connectionString);
-        var contactColumn = method switch
-        {
-            "Email" => "Email",
-            "Sms" => "PhoneNumber",
-            _ => throw new ArgumentException("Unsupported confirmation method.", nameof(method))
-        };
-        var sql = $@"
-            SELECT UserId, FullName, Email, PhoneNumber, PasswordHash, Role,
-                   IsActive, EmailConfirmed, PhoneNumberConfirmed, ConfirmationMethod,
-                   ConfirmationCodeProtected, ConfirmationCodeExpiresAt, ConfirmationAttempts
-            FROM Users
-            WHERE {contactColumn} = @Destination;";
-
-        return await connection.QuerySingleOrDefaultAsync<CivicUser>(sql, new { Destination = destination });
+        return await connection.QuerySingleOrDefaultAsync<CivicUser>(
+            $"SELECT {ConfirmationColumns} FROM Users WHERE Email = @Email;",
+            new { Email = email });
     }
 
     public async Task UpdateConfirmationCodeAsync(int userId, string protectedCode, DateTime expiresAt)
     {
         await using var connection = new MySqlConnection(_connectionString);
-        const string sql = @"
+        var updated = await connection.ExecuteAsync($@"
             UPDATE Users
             SET ConfirmationCodeProtected = @ProtectedCode,
                 ConfirmationCodeExpiresAt = @ExpiresAt,
                 ConfirmationAttempts = 0
-            WHERE UserId = @UserId
-              AND EmailConfirmed = FALSE
-              AND PhoneNumberConfirmed = FALSE;";
-
-        var updated = await connection.ExecuteAsync(
-            sql,
+            WHERE UserId = @UserId AND {IsPendingSql};",
             new { UserId = userId, ProtectedCode = protectedCode, ExpiresAt = expiresAt });
         if (updated != 1)
             throw new InvalidOperationException("The confirmation code could not be refreshed.");
@@ -106,45 +154,31 @@ public sealed class UserRepository : IUserRepository, IUserConfirmationRepositor
     public async Task IncrementConfirmationAttemptsAsync(int userId, string expectedProtectedCode)
     {
         await using var connection = new MySqlConnection(_connectionString);
-        const string sql = @"
+        await connection.ExecuteAsync($@"
             UPDATE Users
             SET ConfirmationAttempts = ConfirmationAttempts + 1
             WHERE UserId = @UserId
               AND ConfirmationCodeProtected = @ExpectedProtectedCode
               AND ConfirmationAttempts < 5
-              AND EmailConfirmed = FALSE
-              AND PhoneNumberConfirmed = FALSE;";
-
-        await connection.ExecuteAsync(
-            sql,
+              AND {IsPendingSql};",
             new { UserId = userId, ExpectedProtectedCode = expectedProtectedCode });
     }
 
-    public async Task<bool> ConfirmUserAsync(int userId, string method, string expectedProtectedCode)
+    public async Task<bool> ConfirmUserAsync(int userId, string expectedProtectedCode)
     {
         await using var connection = new MySqlConnection(_connectionString);
-        var (confirmedColumn, contactColumn) = method switch
-        {
-            "Email" => ("EmailConfirmed", "Email"),
-            "Sms" => ("PhoneNumberConfirmed", "PhoneNumber"),
-            _ => throw new ArgumentException("Unsupported confirmation method.", nameof(method))
-        };
-        var sql = $@"
+        return await connection.ExecuteAsync($@"
             UPDATE Users
-            SET {confirmedColumn} = TRUE,
+            SET EmailConfirmed = TRUE,
                 IsActive = TRUE,
                 ConfirmationCodeProtected = NULL,
                 ConfirmationCodeExpiresAt = NULL,
                 ConfirmationAttempts = 0
             WHERE UserId = @UserId
-              AND {confirmedColumn} = FALSE
               AND ConfirmationCodeProtected = @ExpectedProtectedCode
               AND ConfirmationAttempts < 5
               AND ConfirmationCodeExpiresAt > UTC_TIMESTAMP()
-              AND {contactColumn} IS NOT NULL;";
-
-        return await connection.ExecuteAsync(
-            sql,
+              AND {IsPendingSql};",
             new { UserId = userId, ExpectedProtectedCode = expectedProtectedCode }) == 1;
     }
 }

@@ -1,76 +1,86 @@
-using System.Globalization;
 using System.ComponentModel.DataAnnotations;
-using System.Net.Mail;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.RegularExpressions;
 using CivicConnect.Core.Models;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 
 namespace CivicConnect.Core.Services;
 
+/// <summary>
+/// Self sign-up with email confirmation:
+///  1. Register: the account is saved unconfirmed and a 6-digit code is emailed. If the email
+///     can't be sent, nothing is saved.
+///  2. Confirm: the right code (within 10 minutes, at most 5 tries) activates the account.
+///  3. Resend: a fresh code for an unconfirmed account.
+/// </summary>
 public sealed class UserRegistrationService
 {
+    public const int MinPasswordLength = 10;
+    public const int MaxPasswordLength = 128;
+    public const int MaxAttempts = 5;
     private static readonly TimeSpan ConfirmationLifetime = TimeSpan.FromMinutes(10);
-    private static readonly Regex E164PhoneNumber = new(@"^\+[1-9]\d{7,14}$", RegexOptions.Compiled);
 
     private readonly IUserConfirmationRepository _users;
     private readonly IEmailConfirmationSender _emailSender;
-    private readonly ISmsConfirmationSender _smsSender;
     private readonly IDataProtector _protector;
     private readonly IPasswordHasher<CivicUser> _passwordHasher;
 
     public UserRegistrationService(
         IUserConfirmationRepository users,
         IEmailConfirmationSender emailSender,
-        ISmsConfirmationSender smsSender,
         IDataProtectionProvider dataProtectionProvider,
         IPasswordHasher<CivicUser> passwordHasher)
     {
         _users = users;
         _emailSender = emailSender;
-        _smsSender = smsSender;
         _protector = dataProtectionProvider.CreateProtector("CivicConnect.UserConfirmation.v1");
         _passwordHasher = passwordHasher;
     }
 
+    /// <exception cref="ArgumentException">Invalid name, email or password.</exception>
+    /// <exception cref="AccountAlreadyExistsException">The email already belongs to an account.</exception>
+    /// <exception cref="ConfirmationDeliveryException">The email couldn't be sent; no account was saved.</exception>
     public async Task<int> RegisterAsync(UserRegistrationRequest request, CancellationToken cancellationToken)
     {
-        var method = NormalizeMethod(request.ConfirmationMethod);
-        var destination = NormalizeDestination(method, method == "Email" ? request.Email : request.PhoneNumber);
-        var user = new CivicUser
-        {
-            FullName = request.FullName.Trim(),
-            Email = method == "Email" ? destination : null,
-            PhoneNumber = method == "Sms" ? destination : null,
-            ConfirmationMethod = method
-        };
-        if (string.IsNullOrWhiteSpace(user.FullName))
-            throw new ArgumentException("FullName is required.");
+        var fullName = request.FullName?.Trim() ?? string.Empty;
+        if (fullName.Length == 0)
+            throw new ArgumentException("Please enter your full name.");
+        if (fullName.Length > 150)
+            throw new ArgumentException("Your name must be 150 characters or fewer.");
 
-        user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
+        var email = NormalizeEmail(request.Email);
+
+        var password = request.Password ?? string.Empty;
+        if (password.Length < MinPasswordLength)
+            throw new ArgumentException($"Password must be at least {MinPasswordLength} characters.");
+        if (password.Length > MaxPasswordLength)
+            throw new ArgumentException($"Password must be {MaxPasswordLength} characters or fewer.");
+
+        var user = new CivicUser { FullName = fullName, Email = email, Role = "Requester" };
+        user.PasswordHash = _passwordHasher.HashPassword(user, password);
 
         var code = CreateCode();
         user.ConfirmationCodeProtected = _protector.Protect(code);
         user.ConfirmationCodeExpiresAt = DateTime.UtcNow.Add(ConfirmationLifetime);
 
-        var userId = await _users.CreatePendingUserAsync(user);
-        await SendConfirmationAsync(method, destination, code, cancellationToken);
-        return userId;
+        // The account row is only committed once the email has been accepted by the mail server.
+        return await _users.CreatePendingUserAsync(
+            user,
+            () => SendCodeAsync(email, fullName, code, cancellationToken));
     }
 
     public async Task<bool> ConfirmAsync(ConfirmUserRequest request)
     {
-        var method = NormalizeMethod(request.ConfirmationMethod);
-        var destination = NormalizeDestination(method, request.Destination);
-        var user = await _users.FindByConfirmationDestinationAsync(method, destination);
+        var email = NormalizeEmail(request.Email);
+        var code = request.Code?.Trim() ?? string.Empty;
+        var user = await _users.FindByEmailAsync(email);
 
-        if (user is null || IsConfirmed(user, method) ||
-            user.ConfirmationCodeProtected is null ||
+        if (user is null || !user.IsPendingConfirmation ||
             user.ConfirmationCodeExpiresAt is null ||
             user.ConfirmationCodeExpiresAt <= DateTime.UtcNow ||
-            user.ConfirmationAttempts >= 5)
+            user.ConfirmationAttempts >= MaxAttempts)
         {
             return false;
         }
@@ -78,96 +88,69 @@ public sealed class UserRegistrationService
         string expectedCode;
         try
         {
-            expectedCode = _protector.Unprotect(user.ConfirmationCodeProtected);
+            expectedCode = _protector.Unprotect(user.ConfirmationCodeProtected!);
         }
         catch (CryptographicException)
         {
             return false;
         }
 
-        var suppliedBytes = Encoding.UTF8.GetBytes(request.Code);
+        var suppliedBytes = Encoding.UTF8.GetBytes(code);
         var expectedBytes = Encoding.UTF8.GetBytes(expectedCode);
         if (suppliedBytes.Length != expectedBytes.Length ||
             !CryptographicOperations.FixedTimeEquals(suppliedBytes, expectedBytes))
         {
-            await _users.IncrementConfirmationAttemptsAsync(user.UserId, user.ConfirmationCodeProtected);
+            await _users.IncrementConfirmationAttemptsAsync(user.UserId, user.ConfirmationCodeProtected!);
             return false;
         }
 
-        return await _users.ConfirmUserAsync(user.UserId, method, user.ConfirmationCodeProtected);
+        return await _users.ConfirmUserAsync(user.UserId, user.ConfirmationCodeProtected!);
     }
 
-    public async Task ResendConfirmationAsync(
-        ResendConfirmationRequest request,
-        CancellationToken cancellationToken)
+    /// <summary>
+    /// Emails a new code if the address has an unconfirmed sign-up. Does nothing otherwise, so the
+    /// response never reveals whether an account exists.
+    /// </summary>
+    /// <exception cref="ConfirmationDeliveryException">The email couldn't be sent.</exception>
+    public async Task ResendConfirmationAsync(ResendConfirmationRequest request, CancellationToken cancellationToken)
     {
-        var method = NormalizeMethod(request.ConfirmationMethod);
-        var destination = NormalizeDestination(method, request.Destination);
-        var user = await _users.FindByConfirmationDestinationAsync(method, destination);
-
-        if (user is null || IsConfirmed(user, method))
-        {
+        var email = NormalizeEmail(request.Email);
+        var user = await _users.FindByEmailAsync(email);
+        if (user is null || !user.IsPendingConfirmation)
             return;
-        }
 
         var code = CreateCode();
-        var protectedCode = _protector.Protect(code);
         await _users.UpdateConfirmationCodeAsync(
             user.UserId,
-            protectedCode,
+            _protector.Protect(code),
             DateTime.UtcNow.Add(ConfirmationLifetime));
-        await SendConfirmationAsync(method, destination, code, cancellationToken);
+        await SendCodeAsync(email, user.FullName, code, cancellationToken);
     }
 
-    private async Task SendConfirmationAsync(
-        string method,
-        string destination,
-        string code,
-        CancellationToken cancellationToken)
+    private async Task SendCodeAsync(string email, string fullName, string code, CancellationToken cancellationToken)
     {
         try
         {
-            IConfirmationSender sender = method == "Email" ? _emailSender : _smsSender;
-            await sender.SendAsync(destination, code, cancellationToken);
+            await _emailSender.SendAsync(email, fullName, code, cancellationToken);
         }
-        catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or SmtpException)
+        catch (Exception ex) when (ex is not OperationCanceledException and not ConfirmationDeliveryException)
         {
             throw new ConfirmationDeliveryException(ex);
         }
     }
 
-    private static string NormalizeMethod(string method)
+    internal static string NormalizeEmail(string? email)
     {
-        if (string.Equals(method, "Email", StringComparison.OrdinalIgnoreCase))
-            return "Email";
-        if (string.Equals(method, "Sms", StringComparison.OrdinalIgnoreCase))
-            return "Sms";
-
-        throw new ArgumentException("ConfirmationMethod must be 'Email' or 'Sms'.");
-    }
-
-    private static string NormalizeDestination(string method, string? destination)
-    {
-        var normalized = destination?.Trim();
-        if (string.IsNullOrWhiteSpace(normalized))
-            throw new ArgumentException($"A {method} destination is required.");
-
-        if (method == "Email")
+        var normalized = email?.Trim().ToLowerInvariant() ?? string.Empty;
+        if (normalized.Length == 0)
+            throw new ArgumentException("Please enter your email address.");
+        if (normalized.Length > 255 || !new EmailAddressAttribute().IsValid(normalized) ||
+            normalized.IndexOf('.', normalized.IndexOf('@')) < 0)
         {
-            normalized = normalized.ToLowerInvariant();
-            if (normalized.Length > 255 || !new EmailAddressAttribute().IsValid(normalized))
-                throw new ArgumentException("A valid email address is required.");
+            throw new ArgumentException("Please enter a valid email address.");
         }
-        else if (!E164PhoneNumber.IsMatch(normalized))
-        {
-            throw new ArgumentException("Phone numbers must use E.164 format, such as +15551234567.");
-        }
-
         return normalized;
     }
-
-    private static bool IsConfirmed(CivicUser user, string method) =>
-        method == "Email" ? user.EmailConfirmed : user.PhoneNumberConfirmed;
 
     private static string CreateCode() =>
         RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6", CultureInfo.InvariantCulture);

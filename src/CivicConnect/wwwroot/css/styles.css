@@ -342,3 +342,6 @@ textarea { min-height: 130px; resize: vertical; }
 }
 .card-body th, .card-body td { padding-left: 12px; padding-right: 12px; }
 .card-body .ticket { font-size: 12px; }
+.login-card .hint-small { margin: 0; font-size: 12px; color: var(--muted); }
+.login-card .resend-btn { margin-top: 10px; }
+.login-card .switch-auth + .switch-auth { margin-top: 4px; }

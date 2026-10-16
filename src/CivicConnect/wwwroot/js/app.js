@@ -83,16 +83,9 @@
 
   const api = {
     login: (email, password) => http("POST", "/api/auth/login", { email, password }),
-    register: (fullName, password, confirmationMethod, destination) => http("POST", "/api/auth/register", {
-      fullName, password, confirmationMethod,
-      ...(confirmationMethod === "Email" ? { email: destination } : { phoneNumber: destination })
-    }),
-    confirm: (confirmationMethod, destination, code) => http("POST", "/api/auth/confirm", {
-      confirmationMethod, destination, code
-    }),
-    resendConfirmation: (confirmationMethod, destination) => http("POST", "/api/auth/resend-confirmation", {
-      confirmationMethod, destination
-    }),
+    register: (fullName, email, password) => http("POST", "/api/auth/register", { fullName, email, password }),
+    confirm: (email, code) => http("POST", "/api/auth/confirm", { email, code }),
+    resendConfirmation: email => http("POST", "/api/auth/resend-confirmation", { email }),
     users: role => http("GET", "/api/users" + (role ? `?role=${encodeURIComponent(role)}` : "")),
     categories: () => http("GET", "/api/categories"),
     statuses: () => http("GET", "/api/statuses"),
@@ -304,7 +297,8 @@
         <button class="btn btn-primary btn-block" type="submit" id="loginBtn">Login</button>
       </form>
       <a href="#/login" class="forgot" id="forgot">Forgot password?</a>
-      <p class="switch-auth">Don't have an account? <a href="#/register">Register</a></p>`);
+      <p class="switch-auth">Don't have an account? <a href="#/register">Register</a></p>
+      <p class="switch-auth">Signed up but not confirmed? <a href="#/confirm">Enter your code</a></p>`);
     $("#forgot").onclick = e => { e.preventDefault(); toast("Password reset isn't available yet — contact your administrator."); };
     $("#loginForm").onsubmit = async e => {
       e.preventDefault();
@@ -316,91 +310,89 @@
     };
   }
 
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  // Sign-up: the server only creates the account if it could email the confirmation code.
   function viewRegister() {
-    let confirmationMethod = "Email";
-    let destination = "";
     authCard(`<h1>Create an account</h1>
       <p class="tag">Register to submit and track service requests</p>
       <form id="regForm" novalidate>
         <div id="regErr"></div>
-        <div class="input-icon">${I.user}<input type="text" id="rname" placeholder="Full name" autocomplete="name"></div>
-        <label for="rmethod">Confirmation method</label>
-        <select id="rmethod"><option value="Email">Email</option><option value="Sms">SMS</option></select>
-        <div class="input-icon">${I.mail}<input type="email" id="rcontact" placeholder="Email" autocomplete="email" required></div>
-        <div class="input-icon">${I.lock}<input type="password" id="rpw" placeholder="Password (min. 10 characters)" autocomplete="new-password"></div>
-        <div class="input-icon">${I.lock}<input type="password" id="rpw2" placeholder="Confirm password" autocomplete="new-password"></div>
+        <div class="input-icon">${I.user}<input type="text" id="rname" placeholder="Full name" autocomplete="name" maxlength="150"></div>
+        <div class="input-icon">${I.mail}<input type="email" id="remail" placeholder="Email" autocomplete="email" maxlength="255"></div>
+        <div class="input-icon">${I.lock}<input type="password" id="rpw" placeholder="Password (min. 10 characters)" autocomplete="new-password" maxlength="128"></div>
+        <div class="input-icon">${I.lock}<input type="password" id="rpw2" placeholder="Confirm password" autocomplete="new-password" maxlength="128"></div>
+        <p class="hint-small">We'll email you a 6-digit code to confirm your address.</p>
         <button class="btn btn-primary btn-block" type="submit" id="regBtn">Register</button>
       </form>
-      <p class="switch-auth">Already have an account? <a href="#/login">Log in</a></p>`);
-    $("#rmethod").onchange = () => {
-      confirmationMethod = $("#rmethod").value;
-      const contact = $("#rcontact");
-      contact.value = "";
-      contact.type = confirmationMethod === "Email" ? "email" : "tel";
-      contact.placeholder = confirmationMethod === "Email" ? "Email" : "Phone (+15551234567)";
-      contact.autocomplete = confirmationMethod === "Email" ? "email" : "tel";
-    };
+      <p class="switch-auth">Already have an account? <a href="#/login">Log in</a></p>
+      <p class="switch-auth">Have a code? <a href="#/confirm">Confirm your email</a></p>`);
     $("#regForm").onsubmit = async e => {
       e.preventDefault();
-      const name = $("#rname").value.trim(), contact = $("#rcontact").value.trim(), pw = $("#rpw").value, pw2 = $("#rpw2").value;
+      const name = $("#rname").value.trim(), email = $("#remail").value.trim().toLowerCase(), pw = $("#rpw").value, pw2 = $("#rpw2").value;
       const err = !name ? "Please enter your full name." :
-        confirmationMethod === "Email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact) ? "Please enter a valid email address." :
-        confirmationMethod === "Sms" && !/^\+[1-9]\d{7,14}$/.test(contact) ? "Enter a phone number in E.164 format, such as +15551234567." :
+        !EMAIL_RE.test(email) ? "Please enter a valid email address." :
         pw.length < 10 ? "Password must be at least 10 characters." :
         pw !== pw2 ? "Passwords don't match." : "";
       if (err) { $("#regErr").innerHTML = `<div class="error-msg">${esc(err)}</div>`; return; }
-      $("#regBtn").disabled = true;
+      $("#regBtn").disabled = true; $("#regBtn").textContent = "Sending code…";
       try {
-        destination = contact;
-        await api.register(name, pw, confirmationMethod, destination);
-        showConfirmation();
+        await api.register(name, email, pw);
+        viewConfirm(email, true);
       } catch (ex) {
         $("#regErr").innerHTML = `<div class="error-msg">${esc(ex.message)}</div>`;
-        $("#regBtn").disabled = false;
+        $("#regBtn").disabled = false; $("#regBtn").textContent = "Register";
       }
     };
+  }
 
-    function showConfirmation() {
-      const delivery = confirmationMethod === "Email" ? "email" : "text message";
-      authCard(`<h1>Confirm your account</h1>
-        <p class="tag">Enter the code sent by ${delivery} to ${esc(destination)}.</p>
-        <form id="confirmForm" novalidate>
-          <div id="confirmErr"></div>
-          <div class="input-icon">${I.lock}<input type="text" id="confirmationCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="\\d{6}" placeholder="6-digit code" required></div>
-          <button class="btn btn-primary btn-block" type="submit" id="confirmBtn">Confirm account</button>
-        </form>
-        <button class="btn btn-block" type="button" id="resendBtn">Resend code</button>
-        <p class="switch-auth"><a href="#/login">Back to login</a></p>`);
-      $("#confirmForm").onsubmit = async e => {
-        e.preventDefault();
-        const code = $("#confirmationCode").value.trim();
-        if (!/^\d{6}$/.test(code)) {
-          $("#confirmErr").innerHTML = `<div class="error-msg">Enter the 6-digit confirmation code.</div>`;
-          return;
-        }
-        $("#confirmBtn").disabled = true;
-        try {
-          await api.confirm(confirmationMethod, destination, code);
-          authCard(`<h1>Account confirmed</h1>
-            <p class="tag">Your account is ready. Log in to continue.</p>
-            <a class="btn btn-primary btn-block" href="#/login">Go to login</a>`);
-        } catch (ex) {
-          $("#confirmErr").innerHTML = `<div class="error-msg">${esc(ex.message)}</div>`;
-          $("#confirmBtn").disabled = false;
-        }
-      };
-      $("#resendBtn").onclick = async () => {
-        $("#resendBtn").disabled = true;
-        try {
-          await api.resendConfirmation(confirmationMethod, destination);
-          toast("If the account needs confirmation, a new code has been sent.");
-        } catch (ex) {
-          $("#confirmErr").innerHTML = `<div class="error-msg">${esc(ex.message)}</div>`;
-        } finally {
-          $("#resendBtn").disabled = false;
-        }
-      };
-    }
+  // Enter the emailed code. Reached straight after sign-up, or later from #/confirm.
+  function viewConfirm(email = "", justSent = false) {
+    authCard(`<h1>Confirm your email</h1>
+      <p class="tag">${justSent ? `We've emailed a 6-digit code to <strong>${esc(email)}</strong>. It expires in 10 minutes.` : "Enter the email you signed up with and the 6-digit code we sent you."}</p>
+      <form id="confirmForm" novalidate>
+        <div id="confirmErr"></div>
+        <div class="input-icon" ${justSent ? 'hidden' : ""}>${I.mail}<input type="email" id="cemail" placeholder="Email" autocomplete="email" value="${esc(email)}"></div>
+        <div class="input-icon">${I.lock}<input type="text" id="confirmationCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="\\d{6}" placeholder="6-digit code"></div>
+        <button class="btn btn-primary btn-block" type="submit" id="confirmBtn">Confirm account</button>
+      </form>
+      <button class="btn btn-block resend-btn" type="button" id="resendBtn">Email me a new code</button>
+      <p class="switch-auth">Can't find it? Check your spam folder.</p>
+      <p class="switch-auth"><a href="#/login">Back to login</a></p>`);
+    $(justSent ? "#confirmationCode" : "#cemail").focus();
+    const readEmail = () => $("#cemail").value.trim().toLowerCase();
+    const showErr = m => ($("#confirmErr").innerHTML = m ? `<div class="error-msg">${esc(m)}</div>` : "");
+    $("#confirmForm").onsubmit = async e => {
+      e.preventDefault();
+      const addr = readEmail(), code = $("#confirmationCode").value.trim();
+      if (!EMAIL_RE.test(addr)) return showErr("Please enter the email address you signed up with.");
+      if (!/^\d{6}$/.test(code)) return showErr("Enter the 6-digit code from the email.");
+      $("#confirmBtn").disabled = true;
+      try {
+        await api.confirm(addr, code);
+        authCard(`<h1>Account confirmed</h1>
+          <p class="tag">Your account is ready. Log in to continue.</p>
+          <a class="btn btn-primary btn-block" href="#/login">Go to login</a>`);
+      } catch (ex) {
+        showErr(ex.message);
+        $("#confirmBtn").disabled = false;
+      }
+    };
+    $("#resendBtn").onclick = async () => {
+      const addr = readEmail();
+      if (!EMAIL_RE.test(addr)) return showErr("Please enter the email address you signed up with.");
+      showErr("");
+      $("#resendBtn").disabled = true;
+      try {
+        await api.resendConfirmation(addr);
+        toast("If that email has an unconfirmed account, a new code is on its way.");
+      } catch (ex) {
+        showErr(ex.message);
+      } finally {
+        // Short cool-down so the button isn't hammered (the server also limits it).
+        setTimeout(() => { if ($("#resendBtn")) $("#resendBtn").disabled = false; }, 30000);
+      }
+    };
   }
 
   // ---------- Requester ----------
@@ -833,7 +825,7 @@
   const SEV_CLASS = { Error: "b-rejected", Warning: "b-pending", Information: "b-progress" };
   const ACTION_TEXT = {
     SERVER_EXCEPTION: "Server crash", SERVER_ERROR: "Server error", ACCESS_DENIED: "Access denied",
-    BROWSER_ERROR: "Browser error", CREATE: "Request created", UPDATE_STATUS: "Status changed"
+    BROWSER_ERROR: "Browser error", EMAIL_SEND_FAILED: "Email not sent", CREATE: "Request created", UPDATE_STATUS: "Status changed"
   };
 
   async function viewLogs() {
@@ -950,6 +942,7 @@
       session.user = null;
       if (page === "register") return viewRegister();
       if (page === "login") return viewLogin();
+      if (page === "confirm") return viewConfirm();
       // Guests land on the dashboard. Pages that need an account show it behind a sign-in prompt.
       const target = location.hash;
       const needsSignIn = GUEST_REASON[page];
@@ -959,7 +952,7 @@
       if (needsSignIn) promptSignIn(target, needsSignIn);
       return;
     }
-    if (page === "login" || page === "register" || !page || !ACCESS[page] || !ACCESS[page].includes(role())) {
+    if (page === "login" || page === "register" || page === "confirm" || !page || !ACCESS[page] || !ACCESS[page].includes(role())) {
       location.hash = HOME[role()]; return;
     }
     loading();

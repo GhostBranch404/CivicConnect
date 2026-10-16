@@ -5,8 +5,7 @@ namespace CivicConnect.Core.Models;
 public sealed class ResendConfirmationRequest
 {
     [Required]
-    public string ConfirmationMethod { get; set; } = string.Empty;
-
-    [Required]
-    public string Destination { get; set; } = string.Empty;
+    [EmailAddress]
+    [StringLength(255)]
+    public string Email { get; set; } = string.Empty;
 }
