@@ -1741,9 +1741,8 @@ baseline.
 - Record the exact deployment SHA and workflow run; the Azure workflow currently deploys from `main`, while the CI workflow tests `main` and `dev` (not `staging`).
 - Complete and verify authentication/RBAC, staff assignment, management reporting, backup/restore and performance checks before a production-ready decision.
 
-The M2 design baseline remains useful, but M3 release readiness is **not yet confirmed**. These conditions are evidence gaps, not claims that the relevant code is absent.
 
-**Team Approval**
+**Team Approval for M3 submission**
 
 By approving this baseline, the team agrees that significant changes to
 the accepted scope or requirements will be recorded and handled thorough
