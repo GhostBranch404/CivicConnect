@@ -1571,7 +1571,7 @@ requests for application code.
 -   **Action:** Create a request, then send a `PATCH` request to
     `/api/requests/{id}/status` to change the status to `In Progress`,
     using a valid user ID.
--   **Result:**The API returns HTTP `200 OK`. Checking the
+-   **Result:** The API returns HTTP `200 OK`. Checking the
     database confirms that the status is `In Progress`.
 
 ## Authentication API integration test cases
