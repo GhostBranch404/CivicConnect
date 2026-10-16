@@ -1,14 +1,8 @@
 namespace CivicConnect.Core.Services;
 
-public interface IConfirmationSender
+/// <summary>Sends the 6-digit account confirmation code by email.</summary>
+public interface IEmailConfirmationSender
 {
-    Task SendAsync(string destination, string code, CancellationToken cancellationToken);
-}
-
-public interface IEmailConfirmationSender : IConfirmationSender
-{
-}
-
-public interface ISmsConfirmationSender : IConfirmationSender
-{
+    /// <summary>Throws if the email could not be handed to the mail server.</summary>
+    Task SendAsync(string email, string fullName, string code, CancellationToken cancellationToken);
 }

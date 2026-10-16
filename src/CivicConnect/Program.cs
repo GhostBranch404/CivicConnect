@@ -57,12 +57,20 @@ builder.Services.AddSingleton<IDeveloperLogRepository>(sp =>
 builder.Services.AddScoped<IUserConfirmationRepository>(_ => new UserRepository(connectionString));
 builder.Services.AddScoped<UserRegistrationService>();
 builder.Services.AddScoped<IPasswordHasher<CivicUser>, PasswordHasher<CivicUser>>();
-builder.Services.Configure<EmailSmtpOptions>(builder.Configuration.GetSection("Email"));
-builder.Services.Configure<TwilioSmsOptions>(builder.Configuration.GetSection("Sms"));
+// Confirmation emails. Settings come from Email:Host etc. (Azure: Email__Host) or Email_Host / EmailHost.
+builder.Services.AddOptions<EmailSmtpOptions>()
+    .Configure<IConfiguration>((options, configuration) => EmailSmtpOptions.Bind(options, configuration));
 builder.Services.AddScoped<IEmailConfirmationSender, SmtpEmailConfirmationSender>();
-builder.Services.AddHttpClient<ISmsConfirmationSender, TwilioSmsConfirmationSender>();
 
 var app = builder.Build();
+
+// Warn at startup (without printing any values) if confirmation emails can't be sent.
+var missingEmailSettings = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<EmailSmtpOptions>>()
+    .Value.MissingSettings();
+if (missingEmailSettings.Count > 0)
+    app.Logger.LogWarning(
+        "Email is not configured, so sign-up confirmation codes can't be sent. Missing: {Missing}",
+        string.Join(", ", missingEmailSettings));
 
 // Records server errors in DeveloperLogs so devs can see them on the Logs page. Keep it first.
 app.UseMiddleware<ErrorLoggingMiddleware>();
