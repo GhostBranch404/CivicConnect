@@ -1458,13 +1458,6 @@ requests for application code.
     reaches five, and the account cannot be confirmed with the exhausted
     code.
 
-### AUTH-UNIT-04 -- Send an SMS confirmation to an E.164 phone number
-
--   **Action:** Register with `Sms` confirmation and a valid E.164 phone
-    number.
--   **Result:** A six-digit code is sent to that phone number;
-    the phone is stored and no email address is set.
-
 ## Database and persistence test cases
 
 **Test file:** `Tests/CivicConnect.Tests/RequestPersistenceTests.cs`
