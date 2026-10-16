@@ -22,8 +22,8 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("ConnectionStrings:DefaultConnection", "Server=localhost;Database=not-used;");
         builder.ConfigureTestServices(services =>
         {
-            services.RemoveAll<IUserRepository>();
-            services.AddSingleton<IUserRepository>(Users);
+            services.RemoveAll<IUserConfirmationRepository>();
+            services.AddSingleton<IUserConfirmationRepository>(Users);
             services.RemoveAll<IEmailConfirmationSender>();
             services.AddSingleton<IEmailConfirmationSender>(EmailSender);
             services.RemoveAll<ISmsConfirmationSender>();
@@ -73,7 +73,7 @@ public sealed class AuthApiIntegrationTests : IClassFixture<AuthApiFactory>
     }
 }
 
-public sealed class FakeUserRepository : IUserRepository
+public sealed class FakeUserRepository : IUserConfirmationRepository
 {
     public CivicUser? User { get; private set; }
 

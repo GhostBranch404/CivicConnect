@@ -13,7 +13,7 @@ public sealed class UserRegistrationRequest
     public string Password { get; set; } = string.Empty;
 
     [Required]
-    public string ConfirmationMethod { get; set; } = string.Empty;
+    public string ConfirmationMethod { get; set; } = "Email";
 
     [EmailAddress]
     [StringLength(255)]

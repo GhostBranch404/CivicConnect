@@ -135,7 +135,7 @@ public class UserRegistrationServiceTests
             new EphemeralDataProtectionProvider(),
             new PasswordHasher<CivicUser>());
 
-    private sealed class FakeUserRepository : IUserRepository
+    private sealed class FakeUserRepository : IUserConfirmationRepository
     {
         public CivicUser? User { get; private set; }
 

@@ -11,8 +11,8 @@ CivicConnect is a web application for submitting, tracking, assigning and resolv
 - **Persistence:** MySQL with Dapper and MySqlConnector
 - **Schema management:** Version-controlled SQL migration scripts
 - **Application hosting target:** Azure App Service (`civicconnect1`)
-- **Hosted database provider:** Aiven for MySQL is the current documented choice; a successful deployed connection still needs to be evidenced.
-- **Current release status:** **Not production-ready.** On 15 October 2026, the Azure site returned 404 for `/` and `/swagger`. The published .NET files and a process listening on port 8080 were observed, but a successful homepage/API/database operation has not yet been recorded as release evidence.
+- **Hosted database:** MySQL, with separate Staging and Production databases. The active provider is not named here because it has not been confirmed in the project documentation.
+- **Current release status:** The deployed site is accessible and the team has reported successful database connectivity and persistence checks. CivicConnect is not yet production-ready; authentication/authorization and other release-readiness checks remain outstanding.
 
 ## Why these technologies?
 
@@ -20,8 +20,8 @@ CivicConnect is a web application for submitting, tracking, assigning and resolv
 |---|---|---|
 | **MySQL (relational)** | Requests, users, categories, statuses, assignments and history have defined relationships. Foreign keys, unique constraints and transactions help protect consistency. | Schema changes need controlled migrations; queries and mappings need tests. |
 | **Dapper + MySqlConnector** | Keeps SQL explicit and fits the repository code already in the project without an ORM migration. | The team must maintain SQL, mappings, transactions and concurrency checks itself. |
-| **Aiven for MySQL (documented choice)** | Managed MySQL reduces the server administration the student team must do and leaves the application on the same database engine. | Plan limits, TLS/connection settings, costs, backups and a real application connection must be verified. A provider choice is not proof that deployment works. |
-| **Azure App Service (hosting target)** | Managed hosting for the existing ASP.NET Core application, with GitHub Actions deployment and Azure monitoring options. | Deployment must be tied to the intended branch/commit and verified using real HTTP and database checks. The current 404 is still an open blocker. |
+| **Managed MySQL** | A relational database fits the relationships between users, requests, statuses, assignments and history. | Keep the provider and connection details in deployment configuration; verify TLS, backups and restore procedures without publishing secrets. |
+| **Azure App Service** | Managed hosting for the existing ASP.NET Core application, with Azure configuration and deployment workflows. | Record the deployed commit and workflow evidence; continue security and release-readiness checks before production approval. |
 | **Layered monolith** | A small team can build and test one deployable application while keeping HTTP, business rules and SQL separate. | Boundaries must be maintained; microservices would add deployment and operational overhead without a current need. |
 
 A document database was considered, but is not the best fit for the current core workflow: many records reference other records, status changes must be consistent, and the system needs history and reporting. MySQL is a project-fit decision, not a claim that document databases are generally inferior.
@@ -59,7 +59,8 @@ Request history (`RequestHistory`) records business lifecycle events. `Developer
 - `src/CivicConnect/Data/` — repository interfaces and SQL persistence
 - `src/CivicConnect/Models/` — request, history and log models
 - `src/CivicConnect/database/migrations/001_initial_schema.sql` — initial schema and reference seed data
-- `src/CivicConnect/database/migrations/002_user_registration_confirmation.sql` — registration and contact-confirmation fields
+- `src/CivicConnect/database/migrations/002_user_accounts.sql` — password-hash field for login
+- `src/CivicConnect/database/migrations/005_user_registration_confirmation.sql` — email/SMS confirmation fields
 - `Tests/CivicConnect.Tests/` — unit, integration and persistence test code
 - `src/docs/adr/` — architecture decision records
 - `CivicConnect_PED_M3.md` — milestone engineering document
@@ -88,7 +89,10 @@ Apply the schema to the intended development database using a MySQL client:
 
 ```bash
 mysql -h localhost -P 3306 -u YOUR_USER -p CivicConnect < ../../src/CivicConnect/database/migrations/001_initial_schema.sql
-mysql -h localhost -P 3306 -u YOUR_USER -p CivicConnect < ../../src/CivicConnect/database/migrations/002_user_registration_confirmation.sql
+mysql -h localhost -P 3306 -u YOUR_USER -p CivicConnect < ../../src/CivicConnect/database/migrations/002_user_accounts.sql
+mysql -h localhost -P 3306 -u YOUR_USER -p CivicConnect < ../../src/CivicConnect/database/migrations/003_rejected_status.sql
+mysql -h localhost -P 3306 -u YOUR_USER -p CivicConnect < ../../src/CivicConnect/database/migrations/004_admin_approvals.sql
+mysql -h localhost -P 3306 -u YOUR_USER -p CivicConnect < ../../src/CivicConnect/database/migrations/005_user_registration_confirmation.sql
 ```
 
 Configure SMTP settings under `Email` and Twilio credentials under `Sms` using User Secrets or environment variables (for example, `Email__Password` and `Sms__AuthToken`). Keep real credentials out of source control. ASP.NET Core Data Protection keys must persist across restarts and be shared between app instances in a multi-instance deployment; configure a persistent, protected key ring before deploying confirmation flows.
@@ -110,11 +114,12 @@ Swagger is configured for the Development environment. The application also maps
 | `GET` | `/api/requests/{id}` | Retrieve one request |
 | `PATCH` | `/api/requests/{id}/status` | Update status with actor and expected version |
 | `POST` | `/api/auth/register` | Create a requester account and send an email or SMS confirmation code |
+| `POST` | `/api/auth/login` | Log in to an active account |
 | `POST` | `/api/auth/confirm` | Confirm an account using its destination and code |
 | `POST` | `/api/auth/resend-confirmation` | Resend a code for an unconfirmed account |
 | `GET` | `/health` | Application health endpoint |
 
-Registration accepts `FullName`, `Password` (at least 10 characters), `ConfirmationMethod` (`Email` or `Sms`), and either `Email` or `PhoneNumber` (E.164 format, such as `+15551234567`). Confirmation codes expire after 10 minutes; a code can be tried five times before it must be resent. Signup and code endpoints are rate-limited. A confirmed contact does not yet enable login or grant an authentication token.
+Registration accepts `FullName`, `Password` (at least 10 characters), `ConfirmationMethod` (`Email` or `Sms`), and either `Email` or `PhoneNumber` (E.164 format, such as `+15551234567`). The method defaults to `Email` for email-only clients. Confirmation codes expire after 10 minutes; a code can be tried five times before it must be resent. Signup and code endpoints are rate-limited. A user can log in after confirming their contact; login currently returns the user profile and does not issue an authentication token.
 
 Example registration and confirmation requests:
 
@@ -168,18 +173,49 @@ dotnet test CivicConnect.sln --configuration Release
 
 Database-backed tests require `CIVICCONNECT_TEST_CONNECTION` to point to a test database that has the migration applied. A test method existing in source is not proof it passed; record the run result and environment.
 
-The current CI workflow in `.github/workflows/ci.yml` runs on pushes and pull requests targeting `main` or `dev`, not `staging`. The Azure deployment workflow in `.github/workflows/main_civicconnect1.yml` deploys on pushes to `main` or manual dispatch. A commit on `staging` is therefore not automatically proof of what is running in Azure.
+The current CI workflow in `.github/workflows/ci.yml` runs on pushes and pull requests targeting `main` or `dev`, not `staging`. The Azure deployment workflow in `.github/workflows/main_civicconnect1.yml` deploys on pushes to `main` or manual dispatch. A documentation commit on `staging` does not itself trigger an Azure deployment.
+
+## Deployment and Database Verification
+
+### Deployed application
+
+- **Environment:** Azure App Service
+- **Application URL:** https://civicconnect1-gwasb9d4guchefe9.southafricanorth-01.azurewebsites.net/
+- **Status:** The team has confirmed that the site opens successfully after the earlier HTTP 404 issue was resolved.
+- **Database configuration:** The database connection credential is stored in Azure application settings and is not committed to the repository.
+- **Database environments:** Separate Staging and Production databases are maintained. Use the intended environment for each test and do not use production data for routine development testing.
+
+### Verification recorded by the team
+
+The team has reported successful database connectivity and persistence checks. These checks confirm that the deployed application can connect to its configured database and that the tested data operations persist.
+
+Do not treat this result alone as proof that every API endpoint, role permission, transaction rollback path, encryption setting, backup or restore procedure has been verified.
+
+### Security and data integrity
+
+- Keep database credentials in Azure application settings or the appropriate secret store. Never place credentials in source code, documentation, screenshots or logs.
+- Do not record connection strings or secret values in this repository.
+- Use the Staging database for pre-production testing and keep Production separate.
+- The application uses parameterized Dapper queries. Request creation and status updates use database transaction/concurrency controls in the current implementation; automated failure-path and concurrent-update test evidence should be retained.
+- Passwords are hashed by the application. Server-side authentication and role-based authorization still require completion and verification before production approval.
+- Confirm database TLS certificate validation and provider-side encryption/backup settings directly in the active hosting/database configuration before documenting them as verified.
+
+### Remaining release checks
+
+- [ ] Record the deployed commit SHA and the successful Azure workflow/run that produced it.
+- [ ] Retain the exact steps and results for the database/persistence checks.
+- [ ] Test and record rollback behavior when a database operation fails.
+- [ ] Test and record concurrent status updates and conflict handling.
+- [ ] Verify TLS, backup and restore settings with the active database provider.
+- [ ] Complete and test server-side authentication and role-based authorization.
+- [ ] Run the relevant automated tests before approving a production release.
 
 ## Release evidence still required
 
-- [ ] Confirm the actual database provider/endpoint used by the deployed app without publishing credentials.
-- [ ] Apply the migration and record a successful result.
-- [ ] Create a request and verify the saved row, history and developer log.
-- [ ] Update status, reload the request and verify persistence/history/actor.
+- [ ] Record the deployed application commit SHA and successful workflow run.
+- [ ] Keep evidence of the database/persistence checks, including the test steps and results.
+- [ ] Verify database TLS configuration and document the provider's backup/restore arrangements.
 - [ ] Run and record the relevant unit, API integration and database-backed tests.
-- [ ] Verify Azure homepage, one real API response and database connectivity.
-- [ ] Record the deployed commit SHA and successful workflow run.
-- [ ] Verify secret configuration, TLS, backups/restore and cost/plan limits.
 - [ ] Complete and verify authentication/RBAC, staff assignment and management reporting before claiming those features are ready.
 
 ## Security and team workflow

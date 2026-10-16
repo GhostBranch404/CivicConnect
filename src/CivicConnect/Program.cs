@@ -1,18 +1,12 @@
 using System.Threading.RateLimiting;
 using CivicConnect.Core.Data;
+using CivicConnect.Core.Middleware;
 using CivicConnect.Core.Services;
 using CivicConnect.Core.Models;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 
-// Anchor the content root to the folder the app was published to, so wwwroot (the UI)
-// is found no matter which working directory Azure App Service starts the process from.
-var builder = WebApplication.CreateBuilder(new WebApplicationOptions
-{
-    Args = args,
-    ContentRootPath = AppContext.BaseDirectory,
-    WebRootPath = Path.Combine(AppContext.BaseDirectory, "wwwroot")
-});
+var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -50,9 +44,17 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' was not found.");
 
 builder.Services.AddScoped<IRequestRepository>(_ => new RequestRepository(connectionString));
-builder.Services.AddScoped<IUserRepository>(_ => new UserRepository(connectionString));
+builder.Services.AddScoped<CivicConnect.Core.Data.IUserRepository>(_ => new UserRepository(connectionString));
 builder.Services.AddScoped<IAuditHistoryService, AuditHistoryService>();
 builder.Services.AddScoped<IRequestService, RequestService>();
+builder.Services.AddScoped<IRequestDetailsRepository>(_ => new RequestDetailsRepository(connectionString));
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IAdminRepository>(_ => new AdminRepository(connectionString));
+builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddSingleton<INotificationService, LogNotificationService>();
+builder.Services.AddSingleton<IDeveloperLogRepository>(sp =>
+    new DeveloperLogRepository(connectionString, sp.GetRequiredService<ILogger<DeveloperLogRepository>>()));
+builder.Services.AddScoped<IUserConfirmationRepository>(_ => new UserRepository(connectionString));
 builder.Services.AddScoped<UserRegistrationService>();
 builder.Services.AddScoped<IPasswordHasher<CivicUser>, PasswordHasher<CivicUser>>();
 builder.Services.Configure<EmailSmtpOptions>(builder.Configuration.GetSection("Email"));
@@ -61,6 +63,9 @@ builder.Services.AddScoped<IEmailConfirmationSender, SmtpEmailConfirmationSender
 builder.Services.AddHttpClient<ISmsConfirmationSender, TwilioSmsConfirmationSender>();
 
 var app = builder.Build();
+
+// Records server errors in DeveloperLogs so devs can see them on the Logs page. Keep it first.
+app.UseMiddleware<ErrorLoggingMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {

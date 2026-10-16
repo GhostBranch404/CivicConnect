@@ -15,14 +15,14 @@ public sealed class UserRegistrationService
     private static readonly TimeSpan ConfirmationLifetime = TimeSpan.FromMinutes(10);
     private static readonly Regex E164PhoneNumber = new(@"^\+[1-9]\d{7,14}$", RegexOptions.Compiled);
 
-    private readonly IUserRepository _users;
+    private readonly IUserConfirmationRepository _users;
     private readonly IEmailConfirmationSender _emailSender;
     private readonly ISmsConfirmationSender _smsSender;
     private readonly IDataProtector _protector;
     private readonly IPasswordHasher<CivicUser> _passwordHasher;
 
     public UserRegistrationService(
-        IUserRepository users,
+        IUserConfirmationRepository users,
         IEmailConfirmationSender emailSender,
         ISmsConfirmationSender smsSender,
         IDataProtectionProvider dataProtectionProvider,

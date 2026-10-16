@@ -10,12 +10,20 @@ namespace CivicConnect.Core.Controllers;
 [Route("api/auth")]
 public sealed class AuthController : ControllerBase
 {
+    private const string MigrationHint =
+        "User accounts are not set up in the database yet. Run the CivicConnect database migrations.";
+
     private readonly UserRegistrationService _registration;
+    private readonly IUserService _users;
     private readonly ILogger<AuthController> _logger;
 
-    public AuthController(UserRegistrationService registration, ILogger<AuthController> logger)
+    public AuthController(
+        UserRegistrationService registration,
+        IUserService users,
+        ILogger<AuthController> logger)
     {
         _registration = registration;
+        _users = users;
         _logger = logger;
     }
 
@@ -42,6 +50,10 @@ public sealed class AuthController : ControllerBase
         {
             return Conflict(new { Message = "An account with that email address or phone number already exists." });
         }
+        catch (MySqlException ex) when (ex.Number == 1054)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new { Message = MigrationHint });
+        }
         catch (ConfirmationDeliveryException ex)
         {
             _logger.LogError(
@@ -54,6 +66,23 @@ public sealed class AuthController : ControllerBase
         }
     }
 
+    [HttpPost("login")]
+    public async Task<IActionResult> Login([FromBody] LoginRequest request)
+    {
+        try
+        {
+            var user = await _users.LoginAsync(request);
+            if (user is null)
+                return Unauthorized(new { Message = "Incorrect email or password, or the account has not been confirmed." });
+
+            return Ok(user);
+        }
+        catch (MySqlException ex) when (ex.Number == 1054)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new { Message = MigrationHint });
+        }
+    }
+
     [HttpPost("confirm")]
     [EnableRateLimiting("confirmation")]
     public async Task<IActionResult> Confirm([FromBody] ConfirmUserRequest request)
@@ -63,7 +92,7 @@ public sealed class AuthController : ControllerBase
             if (!await _registration.ConfirmAsync(request))
                 return BadRequest(new { Message = "The confirmation code is invalid or expired." });
 
-            return Ok(new { Message = "The account was confirmed successfully." });
+            return Ok(new { Message = "The account was confirmed successfully. You can now log in." });
         }
         catch (ArgumentException ex)
         {

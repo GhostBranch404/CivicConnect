@@ -2,7 +2,7 @@ using CivicConnect.Core.Models;
 
 namespace CivicConnect.Core.Services;
 
-public interface IUserRepository
+public interface IUserConfirmationRepository
 {
     Task<int> CreatePendingUserAsync(CivicUser user);
     Task<CivicUser?> FindByConfirmationDestinationAsync(string method, string destination);
