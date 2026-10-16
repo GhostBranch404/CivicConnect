@@ -48,6 +48,7 @@ Cornelius Greeff 601357 \| Aiden Moses 603067 \| Keegan Stroud 601609
 - [Updated Engineering Decision Log](#updated-engineering-decision-log)
 - [Team Working Agreement and Engineering Governance](#team-working-agreement-and-engineering-governance)
 - [Initial Persistence Verification Table](#initial-persistence-verification-table)
+- [Test Cases](#test-cases)
 - [Agile Development Methodology](#agile-development-methodology)
 - [AI Usage Register](#ai-usage-register)
 - [Document Control/Version History](#document-controlversion-history)
@@ -1384,7 +1385,92 @@ requests for application code.
 
 # Initial Persistence Verification table
 
-#Test Cases
+# Test Cases
+
+The following cases document the automated tests present in
+`Tests/CivicConnect.Tests/`. A test case being listed or implemented does
+not by itself prove that it passed. Database-backed cases run only when
+`CIVICCONNECT_TEST_CONNECTION` points to an isolated MySQL test database
+with the required schema applied.
+
+## Unit and registration service test cases
+
+**Test files:**
+`Tests/CivicConnect.Tests/RequestServiceUnitTests.cs`,
+`Tests/CivicConnect.Tests/RequestAdditionalUnitTests.cs`,
+`Tests/CivicConnect.Tests/White-boxTestCase.cs`, and
+`Tests/CivicConnect.Tests/UserRegistrationServiceTests.cs`
+
+### UNIT-01 -- Reject request submission with an empty description
+
+-   **Action:** Submit a request with a whitespace-only description.
+-   **Expected result:** The service throws `ArgumentException` because
+    the description is required.
+
+### UNIT-02 -- Initialize a valid request submission
+
+-   **Action:** Submit a request with valid requester, category, title,
+    description and location.
+-   **Expected result:** The repository is called once; the service sets
+    the initial status ID and version to `1` and initializes the request
+    and update timestamps.
+
+### UNIT-03 -- Accept a valid request status update
+
+-   **Action:** Update a request to `In Progress` with a positive actor
+    ID and expected version.
+-   **Expected result:** The service calls the repository with the
+    supplied request ID, status, actor and version.
+
+### UNIT-04 -- Reject an invalid status or actor before persistence
+
+-   **Action:** Attempt to update with an unsupported status or an
+    invalid acting-user ID.
+-   **Expected result:** The service throws `ArgumentException`. The
+    invalid-actor test also verifies that no repository calls are made.
+
+### UNIT-05 -- Require notes for resolution
+
+-   **Action:** Attempt to change a request to `Resolved` without notes.
+-   **Expected result:** The service throws
+    `ArgumentException("Resolution notes are required when resolving a request.")`
+    before accessing the repository.
+
+### UNIT-06 -- Return false when the repository reports no matching request
+
+-   **Action:** Update a request whose repository update returns `false`.
+-   **Expected result:** The service returns `false` to indicate that no
+    request was updated.
+
+### AUTH-UNIT-01 -- Register and confirm an email account
+
+-   **Action:** Register with an email address and valid password, then
+    confirm using the code sent by the fake email sender.
+-   **Expected result:** The email is normalized, the password is stored
+    as a hash rather than plaintext, and successful confirmation
+    activates the user and clears the protected confirmation code.
+
+### AUTH-UNIT-02 -- Reject an incorrect confirmation code
+
+-   **Action:** Attempt confirmation with a code different from the
+    issued code.
+-   **Expected result:** Confirmation returns `false` and the account
+    remains unconfirmed.
+
+### AUTH-UNIT-03 -- Enforce the confirmation attempt limit
+
+-   **Action:** Submit five incorrect codes, then try the issued code
+    without requesting a new code.
+-   **Expected result:** Each incorrect attempt fails, the attempt count
+    reaches five, and the account cannot be confirmed with the exhausted
+    code.
+
+### AUTH-UNIT-04 -- Send an SMS confirmation to an E.164 phone number
+
+-   **Action:** Register with `Sms` confirmation and a valid E.164 phone
+    number.
+-   **Expected result:** A six-digit code is sent to that phone number;
+    the phone is stored and no email address is set.
 
 ## Database and persistence test cases
 
@@ -1495,6 +1581,40 @@ requests for application code.
 -   **Expected result:** The API returns HTTP `200 OK`. Checking the
     database confirms that the status is `In Progress` and the version
     has increased from `1` to `2`.
+
+## Authentication API integration test cases
+
+**Test file:**
+`Tests/CivicConnect.Tests/Integration/AuthApiIntegrationTests.cs`
+
+### AUTH-API-01 -- Register and confirm an email account through the API
+
+-   **Action:** Submit a valid registration to `/api/auth/register`,
+    then submit the captured confirmation code to `/api/auth/confirm`.
+-   **Expected result:** Registration returns HTTP `201 Created` and
+    sends a code through the fake email sender. The pending account is
+    initially inactive; confirmation returns HTTP `200 OK` and marks
+    the email as confirmed and the account active.
+
+## CI and load-test execution notes
+
+The CI workflow in `.github/workflows/ci.yml` restores and builds the
+solution, starts MySQL, applies `001_initial_schema.sql`, and runs the
+test suite on pushes and pull requests targeting `main` or `dev`.
+Database tests require the CI database schema and connection string to
+match the test setup; confirm whether additional migrations are needed
+by the cases being run. Record the workflow run and whether database
+tests were executed or skipped; a green run with skipped database tests
+is not evidence that persistence cases passed.
+
+`Tests/CivicConnect.Tests/LoadTest.cs` contains a k6 script for a
+two-minute request-read load profile: ramp to 20 virtual users over 30
+seconds, ramp to 50 over the next minute, then ramp down over 30
+seconds. It requests `/api/requests/1` and defines thresholds of p95
+response time below 200 ms and failed requests below 1%. This script is
+not currently invoked by the CI workflow, so its thresholds must not
+be reported as passed without running k6 against the intended test
+environment and recording results.
 
 # Agile Development Methodology
 
