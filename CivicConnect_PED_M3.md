@@ -48,6 +48,7 @@ Cornelius Greeff 601357 \| Aiden Moses 603067 \| Keegan Stroud 601609
 - [Updated Engineering Decision Log](#updated-engineering-decision-log)
 - [Team Working Agreement and Engineering Governance](#team-working-agreement-and-engineering-governance)
 - [Initial Persistence Verification Table](#initial-persistence-verification-table)
+- [Test Cases](#test-cases)
 - [Agile Development Methodology](#agile-development-methodology)
 - [AI Usage Register](#ai-usage-register)
 - [Document Control/Version History](#document-controlversion-history)
@@ -1384,7 +1385,86 @@ requests for application code.
 
 # Initial Persistence Verification table
 
-#Test Cases
+# Test Cases
+
+## Unit test cases
+
+**Test files:**
+`Tests/CivicConnect.Tests/RequestServiceUnitTests.cs`,
+`Tests/CivicConnect.Tests/RequestAdditionalUnitTests.cs`,
+`Tests/CivicConnect.Tests/White-boxTestCase.cs`, and
+`Tests/CivicConnect.Tests/UserRegistrationServiceTests.cs`
+
+### UNIT-01 -- Reject request submission with an empty description
+
+-   **Action:** Submit a request with a empty description.
+-   **Result:** The system throws `ArgumentException` because
+    a description of the request is required.
+
+### UNIT-02 -- Submitting a valid request 
+
+-   **Action:** Submits a request with all the valid and required fields including requester, category, title,
+    description and location.
+-   **Result:** The repository is called once then system sets
+    the initial status ID and version to `1` and initializes the request
+    and provides a timestamp of the event.
+
+### UNIT-03 -- Accepted request status update
+
+-   **Action:** Update a request from `In Progress` to the users choice of the request
+    ID.
+-   **Result:** The system calls the repository with the
+    supplied request ID and status.
+
+### UNIT-04 -- Reject an invalid status
+
+-   **Action:** System attempts to update with a unsupported status or an
+    invalid request ID.
+-   **Result:** The service throws `ArgumentException` then
+    the test also verifies that no repository calls are made.
+
+### UNIT-05 -- Require notes for resolution
+
+-   **Action:** Attempt to change a request status to`Resolved` without notes.
+-   **Result:** The service throws
+    `ArgumentException("Resolution notes are required when resolving a request.")`
+    before accessing the repository.
+
+### UNIT-06 -- Return false when the repository reports no matching request
+
+-   **Action:** Update a request whose repository update returns `false`.
+-   **Result:** The service returns `false` to indicate that no
+    request was updated.
+
+### AUTH-UNIT-01 -- Register and confirm an email account
+
+-   **Action:** Register with an email address and valid password, then
+    confirm using the code sent by the fake email sender.
+-   **Result:** The email is normalized, the password is stored
+    as a hash rather than plaintext, and successful confirmation
+    activates the user and clears the protected confirmation code.
+
+### AUTH-UNIT-02 -- Reject an incorrect confirmation code
+
+-   **Action:** Attempt confirmation with a code different from the
+    issued code.
+-  **Result:** Confirmation returns `false` and the account
+    remains unconfirmed.
+
+### AUTH-UNIT-03 -- Enforce the confirmation attempt limit
+
+-   **Action:** Submit five incorrect codes, then try the issued code
+    without requesting a new code.
+-   **Result:** Each incorrect attempt fails, the attempt count
+    reaches five, and the account cannot be confirmed with the exhausted
+    code.
+
+### AUTH-UNIT-04 -- Send an SMS confirmation to an E.164 phone number
+
+-   **Action:** Register with `Sms` confirmation and a valid E.164 phone
+    number.
+-   **Result:** A six-digit code is sent to that phone number;
+    the phone is stored and no email address is set.
 
 ## Database and persistence test cases
 
@@ -1394,16 +1474,16 @@ requests for application code.
 
 -   **Action:** Create a service request using a valid requester and
     category, then retrieve it by its ID.
--   **Expected result:** The request is saved and retrieved with the
+-   **Result:** The request is saved and retrieved with the
     correct ticket number and requester. Its initial status is
-    `Pending`, its version is `1`, a `RequestCreated` record exists in
+    `Pending`, a `RequestCreated` record exists in
     `RequestHistory`, and a `CREATE` record exists in `DeveloperLogs`.
 
 ### DB-02 -- Reject a request with an invalid requester
 
 -   **Action:** Attempt to create a request using a requester ID that
     does not exist.
--   **Expected result:** The database operation fails because the
+-  **Result:** The database operation fails because the
     requester reference is invalid. No service-request record is left
     behind for that ticket; the failed operation must not leave partial
     request data.
@@ -1412,25 +1492,25 @@ requests for application code.
 
 -   **Action:** Create one request, then attempt to create a second
     request using the same ticket number.
--   **Expected result:** The second insert fails. Only one service
+-   **Result:** The second insert fails. Only one service
     request exists for that ticket, and the original request's
     creation-history and developer-log records remain present.
 
 ### DB-04 -- Resolve a request and verify related records
 
--   **Action:** Change a request's status from `Pending` to `Resolved`,
-    supplying the expected version and resolution notes.
--   **Expected result:** The update succeeds. The request has status
-    `Resolved` and version `2`; `RequestHistory` contains the
-    status-change record with the resolution notes; and `DeveloperLogs`
-    contains an `UPDATE_STATUS` record.
+-   **Action:** Change a request's status from `Pending` to `Resolved` 
+    supplying resolution notes.
+-   **Result:** When the update succeeds the ID of the request's status changes to
+    `Resolved` with the `RequestHistory` containing the
+    status-change record with the resolution notes as well as the `DeveloperLogs`
+    containing the `UPDATE_STATUS` record.
 
 ### DB-05 -- Roll back a status update if a related database write fails
 
 -   **Action:** Attempt a status update using an invalid user ID so that
     a related write fails during the operation.
--   **Expected result:** The operation fails and the transaction rolls
-    back. The request remains `Pending` at version `1`, with no new
+-   **Result:** The operation fails and the transaction rolls
+    back. The request remains `Pending`, with no new
     `StatusChanged` history record and no `UPDATE_STATUS` developer-log
     record from the failed update.
 
@@ -1446,13 +1526,13 @@ requests for application code.
 -   **Action:** Attempt to update a request to a status name that does
     not exist, such as `No Such Status`.
 -   **Expected result:** The operation throws an `ArgumentException`.
-    The request's status ID and version remain unchanged.
+    The request's status ID.
 
 ### DB-08 -- Reject a status update based on an outdated version
 
 -   **Action:** Update a request once using version `1`, then attempt a
     second update while still claiming the expected version is `1`.
--   **Expected result:** The second update is rejected as stale. The
+-  **Result:** The second update is rejected as stale. The
     latest saved status (`In Progress`) and version (`2`) are preserved
     rather than being overwritten by the outdated update.
 
@@ -1461,7 +1541,7 @@ requests for application code.
 -   **Action:** Add a `StatusChanged` history record for an existing
     request, including the old and new status IDs, user, timestamp, and
     notes.
--   **Expected result:** A matching row is stored in `RequestHistory`
+-   **Result:**A matching row is stored in `RequestHistory`
     with the supplied status IDs and notes.
 
 ## API integration test cases
@@ -1473,28 +1553,49 @@ requests for application code.
 
 -   **Action:** Send a `POST` request to `/api/requests`, then use the
     returned request ID to send a `GET` request to `/api/requests/{id}`.
--   **Expected result:** The create endpoint returns HTTP `201 Created`
-    and a valid request ID. The retrieval endpoint returns HTTP
-    `200 OK`, and the saved request contains the submitted title.
+-  **Result:** The create endpoint returns HTTP `201 Created`
+    and a valid request ID with the retrieval endpoint returning a HTTP
+    `200 OK` and the saved request contains the submitted title.
 
 ### API-02 -- Retrieve the request collection
 
 -   **Action:** Send a `GET` request to `/api/requests`.
--   **Expected result:** The API returns HTTP `200 OK`.
+-   **Result:** The API returns HTTP `200 OK`.
 
 ### API-03 -- Request a service request that does not exist
 
 -   **Action:** Send a `GET` request to `/api/requests/999999`.
--   **Expected result:** The API returns HTTP `404 Not Found`.
+-   **Result:** The API returns HTTP `404 Not Found`.
 
 ### API-04 -- Update a request's status through the API
 
 -   **Action:** Create a request, then send a `PATCH` request to
     `/api/requests/{id}/status` to change the status to `In Progress`,
-    using the current expected version and a valid user ID.
--   **Expected result:** The API returns HTTP `200 OK`. Checking the
-    database confirms that the status is `In Progress` and the version
-    has increased from `1` to `2`.
+    using a valid user ID.
+-   **Result:**The API returns HTTP `200 OK`. Checking the
+    database confirms that the status is `In Progress`.
+
+## Authentication API integration test cases
+
+**Test file:**
+`Tests/CivicConnect.Tests/Integration/AuthApiIntegrationTests.cs`
+
+### AUTH-API-01 -- Register and confirm an email account through the API
+
+-   **Action:** Submit a valid registration to `/api/auth/register`,
+    then submit the captured confirmation code to `/api/auth/confirm`.
+-   **Result:** Registration returns HTTP `201 Created` and
+    sends a code through the fake email sender with the pending account being
+    initially inactive a confirmation returns HTTP `200 OK` and marks
+    the email as confirmed and the account active.
+
+## Test Case: load-test
+
+File:`Tests/CivicConnect.Tests/LoadTest.cs` 
+
+**Result:** System tests for the response time expecting it to be below 200 ms and failed requests below 1%.
+
+Currently the system has 26 test cases that all succeed.
 
 # Agile Development Methodology
 
