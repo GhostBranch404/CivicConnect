@@ -32,6 +32,7 @@ Cornelius Greeff 601357 \| Aiden Moses 603067 \| Keegan Stroud 601609
 - [Updated Risk Register](#updated-risk-register)
 - [Architecturally Significant Requirements (ASRs)](#architecturally-significant-requirements-asrs)
 - [Architectural Design and Decision Records (ADRs)](#architectural-design-and-decision-records-adrs)
+- [Design Patterns and Architectural Approach Used in CivicConnect](#design-patterns-and-architectural-approach-used-in-civicconnect)
 - [Authentication and RBAC](#authentication-and-rbac)
 - [Detailed Security & Architectural Rationale for Access Permissions](#detailed-security-architectural-rationale-for-access-permissions)
 - [Data Engineering Decisions](#data-engineering-decisions)
@@ -890,6 +891,113 @@ The risks below add current deployment and evidence concerns to the existing reg
 
 - **Rationale:** Should be able to manage the object lifecycles cleanly
   and decouples service implementations from the concrete controllers.
+
+# Design Patterns and Architectural Approach Used in CivicConnect
+
+## What design patterns mean in this project
+
+A design pattern is a commonly used way of solving a software design problem. It is not a feature on its own, and it does not mean copying a ready-made piece of code. A pattern describes how parts of an application can be organised so that the code is easier to understand, test, change and maintain.
+
+CivicConnect uses a few related design approaches to keep the web API, business rules and database work separate. This is useful for our project because the system needs to manage requests and their status changes while keeping the request information, history and developer logs consistent. It also allows the team to work on different parts of the application without putting all the logic into one large controller or one database class.
+
+The main approaches discussed in this section are the Repository Pattern, Dependency Injection, and the layered architecture used to connect the application components. The first two are commonly described as design patterns or design techniques. Layered architecture is more accurately described as an architectural style. They are related, but they are not exactly the same thing.
+
+## Repository Pattern
+
+The Repository Pattern separates database access from the rest of the application. Instead of a controller writing SQL directly, it calls a service, and the service uses a repository to read or save data. The repository is responsible for database queries and persistence-related work.
+
+CivicConnect uses this approach for request data. For example, `RequestRepository.cs` contains the database operations for service requests, while `RequestService.cs` contains the request validation and workflow rules. The repository works with MySQL through Dapper and MySqlConnector. The code also defines repository interfaces, such as `IRequestRepository`, so that the service can depend on an interface rather than needing to know every detail of the database implementation.
+
+This separation is helpful because database code and business rules have different responsibilities. If a query needs to change, the work can usually be made in the repository without moving SQL into the controller. It also makes the business logic easier to test separately. Where a test uses a substitute implementation of a repository, it can focus on the service's behaviour without needing a live database for every test.
+
+The pattern does not automatically guarantee that the database is correct or that every test is isolated. Those results still depend on the queries, transaction handling, validation and tests that the team writes. For this reason, database-backed tests are still needed to verify real persistence behaviour.
+
+**CivicConnect evidence:**
+- `src/CivicConnect/Data/RequestRepository.cs` — request persistence and SQL operations.
+- `src/CivicConnect/Services/RequestService.cs` — request validation and workflow rules.
+- `src/CivicConnect/Core/Data/IRequestRepository.cs` or the corresponding repository interface file — repository contract, depending on the current project folder structure.
+- `src/CivicConnect/Controllers/RequestController.cs` — HTTP endpoints that call the service instead of containing the request SQL themselves.
+
+## Dependency Injection
+
+Dependency Injection (DI) means that a class receives the services or objects it needs instead of creating all those dependencies itself. In CivicConnect, ASP.NET Core's built-in service container is used to register the service and repository implementations and provide them where they are needed.
+
+For example, `Program.cs` registers `IRequestService` with `RequestService` and registers the request repository implementation. The application can then provide the required service to a controller. This keeps the controller from having to construct its own service and database repository.
+
+DI works well with interfaces because code can depend on a contract rather than being tied directly to one concrete class. It also gives the application a central place to configure how objects are created and how long they are kept. CivicConnect registers its request and user services as scoped services, which suits dependencies used during an individual web request.
+
+The main benefit is reduced coupling. It is easier to replace an implementation or supply a test double when the dependency is provided through the application's service container. DI does not itself provide security, validation or correct business behaviour; those still need to be implemented and tested.
+
+**CivicConnect evidence:**
+- `src/CivicConnect/Program.cs` — service and repository registrations.
+- `src/CivicConnect/Services/RequestService.cs` — service implementation used by the application.
+- `src/CivicConnect/Controllers/RequestController.cs` — API controller that uses the request service.
+
+## Layered architecture
+
+CivicConnect follows a layered structure that separates the application's responsibilities. In the current backend, the main flow is:
+
+```text
+HTTP request
+    |
+    v
+RequestController
+    |
+    v
+RequestService
+    |
+    v
+IRequestRepository / RequestRepository
+    |
+    v
+Dapper + MySqlConnector
+    |
+    v
+MySQL database
+```
+
+The controller handles the HTTP side of the feature, such as receiving a request and returning an appropriate response. The service applies the rules that determine whether the operation is valid. The repository performs the database work. Dapper and MySqlConnector provide the data-access connection to MySQL.
+
+This structure makes the code easier to follow because each part has a clear main responsibility. It also helps testing: controller behaviour, service rules and database operations can be tested at different levels. It is not a strict guarantee that every class is perfectly separated, so the team should continue to check that controllers do not accumulate business rules and that repositories do not become responsible for HTTP behaviour.
+
+Layered architecture is an architectural style rather than a classic object-level design pattern. It is included here because it is the overall structure that allows the Repository Pattern and Dependency Injection to work together in CivicConnect.
+
+**CivicConnect evidence:**
+- `src/CivicConnect/Controllers/` — HTTP API layer.
+- `src/CivicConnect/Services/` — business and workflow rules.
+- `src/CivicConnect/Data/` — data-access implementation.
+- `src/CivicConnect/Program.cs` — application setup and dependency registration.
+
+## Example: creating a service request
+
+The request creation flow shows how these approaches work together. A client sends a request to the API. The controller receives it and passes it to the service. The service checks the required values and applies the request rules. The repository then writes the request and its related records to MySQL.
+
+In the current request repository implementation, request creation uses a database transaction for the request, request-history entry and developer log. The operation commits when it succeeds and attempts to roll back if an exception occurs. This helps prevent a failed creation from leaving only some of those related records saved. The implementation still needs suitable failure-path integration tests to demonstrate that rollback behaves correctly against the configured database.
+
+The flow can be summarised as follows:
+
+- **Controller:** accepts the HTTP request and returns the HTTP response.
+- **Service:** checks the request data and applies workflow rules.
+- **Repository:** runs parameterized SQL and coordinates the persistence transaction.
+- **Database:** stores the request and related records.
+
+This is a practical example of why the code is split into layers. Each part has a focused responsibility, and the full operation can still be tested from the API down to the database.
+
+## Why these approaches were selected
+
+The team chose these approaches because CivicConnect is a relatively small application being developed by a small team, but it still needs clear boundaries between the web API, business rules and database. A layered monolith keeps deployment and operation straightforward while giving the code enough structure to be maintained and tested.
+
+The Repository Pattern keeps SQL out of the controllers and services. Dependency Injection reduces the need for classes to construct their own dependencies. The layered architecture gives the application an understandable flow from HTTP request to stored data. Together, these choices support maintainability and testability without introducing the extra deployment and coordination overhead of separate services.
+
+There are trade-offs. Additional interfaces and layers mean more files and some extra setup, and the team must maintain the boundaries rather than allowing responsibilities to drift between layers. For the current project size and scope, this is a reasonable balance.
+
+## Verification and limitations
+
+The implementation can be inspected in the source files listed above, and the existing test project provides a place to verify expected behaviour. However, the presence of a pattern in the source code is not by itself proof that all related behaviour works correctly.
+
+The team should retain test results showing that request validation works, database operations persist the expected records, failures do not leave partial data, and concurrent status updates are handled safely. Unit tests can focus on service rules, while integration tests should exercise the real database and transaction behaviour. Test claims in the PED should match the actual test output and should not be marked complete merely because a test method exists.
+
+These patterns also do not mean that all production-readiness requirements have been completed. In particular, authentication and server-side role-based authorization must be verified separately. Dependency Injection and the Repository Pattern improve code organisation; they do not replace access controls, secure configuration, database TLS verification, backups or release testing.
 
 General Assumptions and Dependencies
 
