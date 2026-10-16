@@ -6,7 +6,8 @@ namespace CivicConnect.Core.Models
     {
         public const string Requester = "Requester";
         public const string Staff = "Staff";
-        public const string Manager = "Manager";
+        public const string Manager = "Manager"; // shown as "Admin"
+        public const string Dev = "Dev";
     }
 
     public class User
