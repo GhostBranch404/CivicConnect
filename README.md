@@ -59,6 +59,8 @@ Request history (`RequestHistory`) records business lifecycle events. `Developer
 - `src/CivicConnect/Data/` — repository interfaces and SQL persistence
 - `src/CivicConnect/Models/` — request, history and log models
 - `src/CivicConnect/database/migrations/001_initial_schema.sql` — initial schema and reference seed data
+- `src/CivicConnect/database/migrations/002_user_accounts.sql` — password-hash field for login
+- `src/CivicConnect/database/migrations/005_user_registration_confirmation.sql` — email confirmation fields
 - `Tests/CivicConnect.Tests/` — unit, integration and persistence test code
 - `src/docs/adr/` — architecture decision records
 - `CivicConnect_PED_M3.md` — milestone engineering document
@@ -87,7 +89,25 @@ Apply the schema to the intended development database using a MySQL client:
 
 ```bash
 mysql -h localhost -P 3306 -u YOUR_USER -p CivicConnect < ../../src/CivicConnect/database/migrations/001_initial_schema.sql
+mysql -h localhost -P 3306 -u YOUR_USER -p CivicConnect < ../../src/CivicConnect/database/migrations/002_user_accounts.sql
+mysql -h localhost -P 3306 -u YOUR_USER -p CivicConnect < ../../src/CivicConnect/database/migrations/003_rejected_status.sql
+mysql -h localhost -P 3306 -u YOUR_USER -p CivicConnect < ../../src/CivicConnect/database/migrations/004_admin_approvals.sql
+mysql -h localhost -P 3306 -u YOUR_USER -p CivicConnect < ../../src/CivicConnect/database/migrations/005_user_registration_confirmation.sql
 ```
+
+Sign-up confirmation codes are sent by email over SMTP (the team uses Resend). Configure them with User Secrets locally or app settings in Azure. Each setting can be written as `Email__Host` (standard ASP.NET style), `Email_Host` or `EmailHost`:
+
+| Setting | Value |
+|---|---|
+| `Email__Host` | `smtp.resend.com` |
+| `Email__Port` | `587` (465 is not supported by .NET's SMTP client) |
+| `Email__EnableSsl` | `true` |
+| `Email__UserName` | `resend` |
+| `Email__Password` | the Resend API key |
+| `Email__FromAddress` | an address on a domain verified in Resend |
+| `Email__FromName` | optional, defaults to `CivicConnect` |
+
+If the confirmation email can't be sent, registration returns `503` and **no account is created**; the reason is written to the Dev Logs page as `EMAIL_SEND_FAILED`. The app also logs a startup warning if required email settings are missing. Keep real credentials out of source control. ASP.NET Core Data Protection keys must persist across restarts and be shared between app instances in a multi-instance deployment; configure a persistent, protected key ring before deploying confirmation flows.
 
 Then run:
 
@@ -105,7 +125,30 @@ Swagger is configured for the Development environment. The application also maps
 | `GET` | `/api/requests` | Retrieve requests |
 | `GET` | `/api/requests/{id}` | Retrieve one request |
 | `PATCH` | `/api/requests/{id}/status` | Update status with actor and expected version |
+| `POST` | `/api/auth/register` | Email a confirmation code and save an unconfirmed requester account (only if the email was sent) |
+| `POST` | `/api/auth/login` | Log in to an active account |
+| `POST` | `/api/auth/confirm` | Confirm an account using its email and code |
+| `POST` | `/api/auth/resend-confirmation` | Resend a code for an unconfirmed account |
 | `GET` | `/health` | Application health endpoint |
+
+Registration accepts `FullName`, `Email` and `Password` (at least 10 characters). The account is saved unconfirmed inside a database transaction that only commits once the confirmation email has been accepted by the mail server. Signing up again with the same email before confirming replaces the pending details and sends a new code; an email that already belongs to a confirmed, admin-created or deactivated account returns `409`. Confirmation codes expire after 10 minutes; a code can be tried five times before it must be resent. Signup and code endpoints are rate-limited. A user can log in after confirming their email; login currently returns the user profile and does not issue an authentication token.
+
+Example registration and confirmation requests:
+
+```json
+{
+  "fullName": "Aiden Example",
+  "email": "aiden@example.com",
+  "password": "a-long-user-chosen-password"
+}
+```
+
+```json
+{
+  "email": "aiden@example.com",
+  "code": "123456"
+}
+```
 
 Example status update:
 
@@ -201,4 +244,3 @@ Do not treat this result alone as proof that every API endpoint, role permission
 - [ADR-004 — Hosting and release environment](src/docs/adr/ADR-004_hosting_and_release.md)
 - [Database design](src/docs/database-design.md)
 - [SQL migration](src/CivicConnect/database/migrations/001_initial_schema.sql)
-
