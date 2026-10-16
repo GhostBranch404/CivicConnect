@@ -1383,7 +1383,6 @@ requests for application code.
 | Duplicate ticket number           | UNIQUE constraint rejects duplicate                | Not yet verified      |
 | Resolve without notes             | Service layer rejects request                      | Not yet verified      |
 
-# Initial Persistence Verification table
 
 # Test Cases
 
@@ -1691,14 +1690,14 @@ Intelligence tools to be used in the following project:
 
 | **Version** | **Date**   | **Change**                                                                                       | **Author(s)** | **Status** |
 |-------------|------------|--------------------------------------------------------------------------------------------------|---------------|------------|
-| 3.1 | 15/10/2026 | Reviewed M1/M2 continuity; documented Azure/Aiven hosting rationale, release evidence gaps and M3 risk updates; aligned README and ADR-004 | Team | Working draft |
-| **0.1**     | 01/09/2026 | Initial PED created with project overview and early planning                                     | Team          | Draft      |
-| **0.2**     | 03/09/2026 | Added stakeholder analysis, project scope and initial requirements                               | Team          | Draft      |
-| **0.3**     | 07/09/2026 | Added project constraints, Risk Register, RTM and team governance                                | Team          | Review     |
-| **0.4**     | 09/09/2026 | Added Forward Engineering Considerations and Engineering Decision Log; reviewed M1 documentation | Team          | Review     |
+| **0.1**     | 01/09/2026 | Initial PED created with project overview and early planning                                     | Team          | Approved   |
+| **0.2**     | 03/09/2026 | Added stakeholder analysis, project scope and initial requirements                               | Team          | Approved   |
+| **0.3**     | 07/09/2026 | Added project constraints, Risk Register, RTM and team governance                                | Team          | Approved   |
+| **0.4**     | 09/09/2026 | Added Forward Engineering Considerations and Engineering Decision Log; reviewed M1 documentation | Team          | Approved   |
 | **1.0**     | 09/09/2026 | M1 requirements and engineering foundation reviewed and approved as the project baseline         | Team          | Baselined  |
-| **1.1**     | 20/09/2026 | Added Architectural Decisions (ADRs) and ASRs                                                    | Team          | Review     |
+| **1.1**     | 20/09/2026 | Added Architectural Decisions (ADRs) and ASRs                                                    | Team          | Approved   |
 | **2.0**     | 28/09/2026 | Milestone 2 Architecture, Persistence, and Design Patterns Baseline                              | Team          | Approved   |
+| **3.1**     | 15/10/2026 | Reviewed M1/M2 continuity; documented Azure/Aiven hosting rationale, release evidence gaps and M3 risk updates; aligned README and ADR-004 | Team | Working draft |
 
 **Baseline Review**
 
