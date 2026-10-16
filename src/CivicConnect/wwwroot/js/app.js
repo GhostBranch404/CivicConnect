@@ -147,7 +147,18 @@
 
   // ---------- Icons ----------
   const I = {
-    logo: `<svg viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="10" fill="#0f7a6c"/><path d="M11 25.5c0-6.4 4-10.5 9-10.5s9 4.1 9 10.5" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><path d="M8 26h24" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle cx="20" cy="11" r="2.4" fill="#9fe3d6"/><path d="M16 26v-5M20 26v-6M24 26v-5" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>`,
+    logo: `<svg viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="10" fill="#1f8a7e"/><path d="M9 16.5L20 10l11 6.5" stroke="#fff" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/><path d="M10.5 17h19M13.5 19.5v7M18 19.5v7M22 19.5v7M26.5 19.5v7M9.5 29h21" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>`,
+    pin: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 00-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 00-7-7zm0 9.5A2.5 2.5 0 1112 6.5a2.5 2.5 0 010 5z"/></svg>`,
+    clipboard: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h6M9 18h3"/></svg>`,
+    clock: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`,
+    gear: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 01-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 010-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 014 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 010 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>`,
+    check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.8"/></svg>`,
+    arrow: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>`,
+    signin: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>`,
+    pothole: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19L9 5M21 19L15 5M12 6v2M12 11v2"/><path d="M7 17c1.5-1.2 3-1 4 .2 1-1.2 3-1.6 4.5 0 .6.6.9 1.2 1 1.8H6.5c0-.7.2-1.4.5-2z"/></svg>`,
+    drop: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3s6 6.6 6 11a6 6 0 01-12 0c0-4.4 6-11 6-11z"/><path d="M9.5 15a2.5 2.5 0 002.5 2.5"/></svg>`,
+    streetlight: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21V7a3 3 0 013-3h4a2 2 0 012 2v1"/><path d="M14.5 7h5l-1 2.5h-3z"/><path d="M5.5 21h5"/></svg>`,
+    trash: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a1 1 0 001 1h8a1 1 0 001-1l1-13M10 11v6M14 11v6"/></svg>`,
     home: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-7 9 7v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg>`,
     list: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>`,
     plus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>`,
@@ -167,20 +178,55 @@
 
   // ---------- Session & shell ----------
   const session = { user: store.get("user") };
-  const role = () => appRole(session.user && session.user.role);
-  function signIn(user) { session.user = user; store.set("user", user); location.hash = HOME[appRole(user.role)]; }
-  function signOut() { session.user = null; store.set("user", null); location.hash = "#/login"; }
+  // Visitors who aren't signed in are "Guest": they can see the dashboard, and are asked to sign in for anything else.
+  const role = () => session.user ? appRole(session.user.role) : "Guest";
+  function signIn(user) {
+    session.user = user; store.set("user", user);
+    // Send them back to whatever they were trying to open before signing in, if their role can open it.
+    const back = store.get("returnTo"); store.set("returnTo", null);
+    const page = back ? back.split("/")[1] : "";
+    location.hash = page && ACCESS[page] && ACCESS[page].includes(appRole(user.role)) ? back : HOME[appRole(user.role)];
+  }
+  function signOut() { session.user = null; store.set("user", null); store.set("returnTo", null); location.hash = "#/dashboard"; }
+
+  // Ask a guest to sign in. "Sign in" remembers where they were heading and opens the sign-in screen.
+  function promptSignIn(target, why) {
+    if (document.querySelector(".modal-backdrop")) return;
+    const m = modal(`<div class="modal-icon signin-icon">${I.lock}</div><h2>Sign in to continue</h2>
+      <p class="muted">${esc(why || "You need to be signed in to do that.")}</p>
+      <div class="actions-row"><button class="btn" data-no>Not now</button><button class="btn btn-primary" data-yes>Sign in</button></div>
+      <p class="switch-auth">Don't have an account? <a href="#/register" data-reg>Register</a></p>`);
+    m.el.querySelector("[data-no]").onclick = m.close;
+    m.el.querySelector("[data-reg]").onclick = () => { store.set("returnTo", target); m.close(); };
+    const yes = m.el.querySelector("[data-yes]"); yes.focus();
+    yes.onclick = () => { store.set("returnTo", target); m.close(); location.hash = "#/login"; };
+  }
+  const GUEST_REASON = {
+    "my-requests": "Sign in to see and track the requests you've submitted.",
+    "submit": "Sign in to submit a service request so you can track its progress.",
+    "request": "Sign in to view this request."
+  };
 
   const NAV = {
-    Requester: [["#/dashboard", "Dashboard", I.home], ["#/my-requests", "My Requests", I.list], ["#/submit", "Submit Request", I.plus]],
-    Staff: [["#/queue", "Request Queue", I.inbox], ["#/assignments", "My Assignments", I.user], ["#/reports", "Reports", I.report]],
-    Manager: [["#/management", "Dashboard", I.home], ["#/queue", "Request Queue", I.inbox], ["#/reports", "Reports", I.report], ["#/analytics", "Analytics", I.chart], ["#/users", "Users", I.users]]
+    // Everyone (signed in or not) starts with the same dashboard and can report issues; role pages come after.
+    Requester: [["#/dashboard", "Dashboard", I.home], ["#/my-requests", "My Requests", I.list], ["#/submit", "Submit Request", I.plus]]
   };
+  NAV.Staff = [...NAV.Requester, ["#/queue", "Request Queue", I.inbox], ["#/assignments", "My Assignments", I.user], ["#/reports", "Reports", I.report]];
+  NAV.Manager = [...NAV.Requester, ["#/management", "Management", I.clipboard], ["#/queue", "Request Queue", I.inbox], ["#/reports", "Reports", I.report], ["#/analytics", "Analytics", I.chart], ["#/users", "Users", I.users]];
   NAV.Dev = [...NAV.Manager, ["#/logs", "Logs", I.logs]];
-  const HOME = { Requester: "#/dashboard", Staff: "#/queue", Manager: "#/management", Dev: "#/management" };
+  NAV.Guest = NAV.Requester;
+  const HOME = { Requester: "#/dashboard", Staff: "#/dashboard", Manager: "#/dashboard", Dev: "#/dashboard" };
 
   function shell(inner) {
     const u = session.user, hash = location.hash;
+    const userBox = u ? `<div class="user-box">
+          <div class="avatar">${initials(u.fullName)}</div>
+          <div><div class="name">${esc(u.fullName)}</div><div class="role">${esc(ROLE_LABEL[role()])}</div></div>
+          <button id="logout" title="Sign out" aria-label="Sign out">${I.logout}</button>
+        </div>` : `<div class="user-box guest">
+          <a href="#/login" class="btn btn-primary btn-block">${I.signin} Sign in</a>
+          <p>New here? <a href="#/register">Create an account</a></p>
+        </div>`;
     const nav = NAV[role()].map(([href, label, icon]) => {
       const active = hash === href || hash.startsWith(href + "/") ||
         (href === "#/my-requests" && hash.startsWith("#/request/")) || (href === "#/queue" && hash.startsWith("#/manage/"));
@@ -188,18 +234,14 @@
     }).join("");
     return `<div class="shell" id="shell">
       <aside class="sidebar">
-        <div class="brand">${I.logo}<span>CivicConnect</span></div>
+        <div class="brand">${I.logo}<span>Civic<em>Connect</em></span></div>
         <nav class="nav">${nav}</nav>
-        <div class="user-box">
-          <div class="avatar">${initials(u.fullName)}</div>
-          <div><div class="name">${esc(u.fullName)}</div><div class="role">${esc(ROLE_LABEL[role()])}</div></div>
-          <button id="logout" title="Sign out" aria-label="Sign out">${I.logout}</button>
-        </div>
+        ${userBox}
       </aside>
       <div class="main">
         <header class="topbar">
           <button class="menu-btn" id="menu" aria-label="Open menu">${I.menu}</button>
-          <div class="avatar" title="${esc(u.fullName)}">${initials(u.fullName)}</div>
+          ${u ? `<div class="avatar" title="${esc(u.fullName)}">${initials(u.fullName)}</div>` : `<a href="#/login" class="btn btn-sm btn-primary">Sign in</a>`}
         </header>
         <main class="content">${inner}</main>
       </div>
@@ -208,7 +250,7 @@
 
   function render(inner) {
     $("#app").innerHTML = shell(inner);
-    $("#logout").onclick = signOut;
+    if ($("#logout")) $("#logout").onclick = signOut;
     $("#menu").onclick = e => { e.stopPropagation(); $("#shell").classList.toggle("nav-open"); };
     $("#shell").addEventListener("click", e => {
       if (!e.target.closest(".sidebar") && !e.target.closest("#menu")) $("#shell").classList.remove("nav-open");
@@ -246,12 +288,15 @@
 
   // ---------- Login / Register ----------
   function authCard(inner) {
-    $("#app").innerHTML = `<div class="login-wrap"><div class="login-card"><div class="logo">${I.logo}</div>${inner}</div></div>`;
+    $("#app").innerHTML = `<div class="login-wrap"><a class="login-back" href="#/dashboard">${I.back} Back to dashboard</a>
+      <div class="login-card"><div class="logo">${I.logo}</div>${inner}</div></div>`;
   }
 
   function viewLogin() {
+    const prompted = !!store.get("returnTo");
     authCard(`<h1>CivicConnect</h1>
       <p class="tag">Community Service Request Management</p>
+      ${prompted ? `<p class="login-note">Please sign in to continue.</p>` : ""}
       <form id="loginForm" novalidate>
         <div id="loginErr"></div>
         <div class="input-icon">${I.mail}<input type="text" id="email" placeholder="Email" autocomplete="username"></div>
@@ -359,16 +404,58 @@
   }
 
   // ---------- Requester ----------
+  // Things people can report, shown as shortcuts on the dashboard. `match` picks a category whose name contains one of the words.
+  const REPORT_TYPES = [
+    { key: "pothole", label: "Potholes", title: "Pothole", icon: I.pothole, tone: "slate", match: ["pothole", "road"] },
+    { key: "water-leak", label: "Water leaks", title: "Water leak", icon: I.drop, tone: "blue", match: ["water", "leak"] },
+    { key: "streetlight", label: "Streetlights", title: "Streetlight not working", icon: I.streetlight, tone: "amber", match: ["streetlight", "light", "electric"] },
+    { key: "waste", label: "Waste collection", title: "Missed waste collection", icon: I.trash, tone: "green", match: ["waste", "refuse", "rubbish"] }
+  ];
+
+  const greeting = () => { const h = new Date().getHours(); return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; };
+  const statCard = (n, label, icon, tone) => `<div class="card stat2 tone-${tone}">
+      <div class="stat2-icon">${icon}</div><div class="stat2-lbl">${label}</div><div class="stat2-num">${n}</div><span class="stat2-bar"></span></div>`;
+
+  // Requester dashboard. Guests see the same page, without any request data.
   async function viewRequesterDashboard() {
-    const mine = (await loadRequests()).filter(r => r.requesterId === session.user.userId);
-    const c = s => mine.filter(r => r.requestStatus === s).length;
-    render(`<div class="page-head"><h1>Dashboard</h1><a href="#/submit" class="btn btn-primary">New request</a></div>
-      <div class="stats">
-        ${stat(mine.length, "Total Requests")}${stat(c("Pending"), "Pending", "var(--pending)")}
-        ${stat(c("In Progress"), "In Progress", "var(--progress)")}${stat(c("Resolved"), "Completed", "var(--resolved)")}
+    const u = session.user;
+    const mine = u ? (await loadRequests()).filter(r => r.requesterId === u.userId) : null;
+    const c = s => mine ? mine.filter(r => r.requestStatus === s).length : "–";
+    const first = u ? String(u.fullName || "").split(" ")[0] : "";
+    const recent = !mine
+      ? `<div class="empty guest-empty">${I.lock}<p>Sign in to see and track the requests you've submitted.</p>
+          <a href="#/login" class="btn btn-primary btn-sm" data-signin>Sign in</a></div>`
+      : requestTable(mine.slice(0, 5), [COL.ticket, COL.title, COL.status, COL.date,
+          ["Actions", () => `<span class="row-link">View details ${I.arrow}</span>`]], "#/request/", "You haven't submitted any requests yet.");
+    render(`<div class="dash-head">
+        <div><h1>${u ? `${greeting()}, ${esc(first)}` : "Welcome to CivicConnect"}</h1>
+          <p class="muted">Track local issues and help improve your community.</p></div>
+        <span class="dash-loc">${I.pin} South Africa</span>
       </div>
-      <h2>My Recent Requests</h2>
-      <div class="card">${requestTable(mine.slice(0, 5), [COL.ticket, COL.title, COL.status, COL.date], "#/request/", "You haven't submitted any requests yet.")}</div>`);
+      <section class="hero">
+        <div class="hero-text">
+          <h2>Better communities start with a report.</h2>
+          <p>Report issues, track progress and help make our neighbourhoods safer, cleaner and stronger.</p>
+          <a href="#/submit" class="btn btn-primary">${I.plus.replace("<svg", '<svg width="18" height="18"')} Submit a request</a>
+        </div>
+      </section>
+      <div class="stats">
+        ${statCard(mine ? mine.length : "–", "Total Requests", I.clipboard, "teal")}${statCard(c("Pending"), "Pending", I.clock, "amber")}
+        ${statCard(c("In Progress"), "In Progress", I.gear, "blue")}${statCard(c("Resolved"), "Completed", I.check, "green")}
+      </div>
+      <div class="dash-grid">
+        <section class="card">
+          <div class="card-head"><h2>Recent requests</h2><a href="#/my-requests" class="row-link">View all requests ${I.arrow}</a></div>
+          <div class="card-body">${recent}</div>
+        </section>
+        <section class="card card-pad report-card">
+          <h2>What you can report</h2>
+          <p class="muted small">Help us keep your community running smoothly by reporting issues in your area.</p>
+          <div class="report-grid">${REPORT_TYPES.map(t => `<a class="report-tile tone-${t.tone}" href="#/submit/${t.key}"><span class="report-ico">${t.icon}</span>${t.label}</a>`).join("")}</div>
+        </section>
+      </div>`);
+    const s = document.querySelector("[data-signin]");
+    if (s) s.onclick = () => store.set("returnTo", "#/dashboard");
   }
 
   async function viewMyRequests() {
@@ -384,8 +471,9 @@
         "Completed and rejected requests will appear here.")}</div>`);
   }
 
-  async function viewSubmit() {
+  async function viewSubmit(typeKey) {
     await loadRef();
+    const type = REPORT_TYPES.find(t => t.key === typeKey);
     render(`<div class="page-head"><h1>Submit a Service Request</h1></div>
       <div class="card card-pad"><form class="form" id="submitForm" novalidate>
         <div id="formErr"></div>
@@ -400,6 +488,12 @@
           <span class="hint">Be as specific as you can so staff can find it.</span></div>
         <div class="form-actions"><a href="#/dashboard" class="btn">Cancel</a><button class="btn btn-primary" type="submit" id="submitBtn">Submit</button></div>
       </form></div>`);
+    if (type) { // came from a "What you can report" shortcut
+      $("#title").value = type.title;
+      const cat = ref.categories.find(c => type.match.some(w => c.categoryName.toLowerCase().includes(w)));
+      if (cat) $("#cat").value = String(cat.categoryId);
+      $("#desc").focus();
+    }
     $("#submitForm").onsubmit = async e => {
       e.preventDefault();
       const body = {
@@ -792,7 +886,7 @@
 
   // ---------- Add a worker ----------
   function viewAddUser() {
-    render(`<a class="back" href="#/management">${I.back} Back to Dashboard</a>
+    render(`<a class="back" href="#/management">${I.back} Back to Management</a>
       <div class="page-head"><h1>Add a worker</h1></div>
       <div class="card card-pad"><form class="form" id="addUserForm" novalidate>
         <div id="addErr"></div>
@@ -842,7 +936,8 @@
 
   // ---------- Router ----------
   const ACCESS = {
-    "dashboard": ["Requester"], "my-requests": ["Requester"], "submit": ["Requester"], "request": ["Requester", "Staff", "Manager", "Dev"],
+    "dashboard": ["Requester", "Staff", "Manager", "Dev"], "my-requests": ["Requester", "Staff", "Manager", "Dev"],
+    "submit": ["Requester", "Staff", "Manager", "Dev"], "request": ["Requester", "Staff", "Manager", "Dev"],
     "queue": ["Staff", "Manager", "Dev"], "assignments": ["Staff"], "manage": ["Staff", "Manager", "Dev"], "reports": ["Staff", "Manager", "Dev"],
     "management": ["Manager", "Dev"], "analytics": ["Manager", "Dev"], "users": ["Manager", "Dev"], "add-user": ["Manager", "Dev"], "logs": ["Dev"]
   };
@@ -853,7 +948,16 @@
 
     if (!session.user || !session.user.userId) {
       session.user = null;
-      return page === "register" ? viewRegister() : viewLogin();
+      if (page === "register") return viewRegister();
+      if (page === "login") return viewLogin();
+      // Guests land on the dashboard. Pages that need an account show it behind a sign-in prompt.
+      const target = location.hash;
+      const needsSignIn = GUEST_REASON[page];
+      if (!needsSignIn) store.set("returnTo", null);
+      if (page !== "dashboard") history.replaceState(null, "", "#/dashboard");
+      if (!$(".hero")) { loading(); await viewRequesterDashboard(); }
+      if (needsSignIn) promptSignIn(target, needsSignIn);
+      return;
     }
     if (page === "login" || page === "register" || !page || !ACCESS[page] || !ACCESS[page].includes(role())) {
       location.hash = HOME[role()]; return;
@@ -863,7 +967,7 @@
       switch (page) {
         case "dashboard": return await viewRequesterDashboard();
         case "my-requests": return await viewMyRequests();
-        case "submit": return await viewSubmit();
+        case "submit": return await viewSubmit(param);
         case "request": return await viewDetails(Number(param), false);
         case "manage": return await viewDetails(Number(param), true);
         case "queue": return await viewQueue(false);
