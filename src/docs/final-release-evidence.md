@@ -36,10 +36,24 @@ The final percentage must be calculated against the **approved M1 acceptance cri
 
 **Formula:** `Scope completion (%) = (sum of completion values / number of applicable approved M1 acceptance criteria) × 100`
 
-| Approved M1 acceptance criterion | Final implementation evidence | Completion value (1 / 0.5 / 0) | Notes / approved scope change |
+| Approved M1 acceptance criterion | Final implementation evidence to assess | Completion value (1 / 0.5 / 0) | Notes / approved scope change |
 |---|---|---:|---|
-| Copy each applicable criterion from the approved M1 baseline here | Link to code, test result or demo evidence | — | — |
-| **Total** | Number of applicable criteria: **not yet counted** | Sum: **not yet calculated** | Percentage: **must be calculated before submission** |
+| FR-001 — Service request submission | Request API, service/repository, SQL migration; see final RTM in the PED | To assess | Verify create, persistence and retrieval on the intended database. |
+| FR-002 — Request tracking and history | Retrieval routes, requester history UI and RequestHistory | To assess | Verify data reloads and lifecycle history is visible. |
+| FR-003 — Request assignment | Staff queue and assignment-related UI/data structures | To assess | Verify assignment persistence and authorised access. |
+| FR-004 — Status transition and resolution | Status update route, comments/history and reject outcome | To assess | Verify valid/invalid transition and failure-path behaviour. |
+| FR-005 — Dashboard oversight | Management dashboard; reports/analytics are described as placeholders | To assess | Assess the original acceptance criteria carefully; full reporting may be partial/deferred. |
+| FR-006 — User authentication | Registration/login endpoints and password hashing | To assess | Login does not issue an authentication token; assess against the approved M1 criterion and do not overstate. |
+| FR-007 — Role-based access | Role-aware UI and Admin service checks | To assess | Verify trusted caller identity and server-side negative access tests. |
+| FR-008 — Request comments and history | Comment/history UI and data model | To assess | Verify saved comment/history and responsible actor/time. |
+| FR-009 — Application logging | Developer Logs page, middleware/repository and email-failure logging | To assess | Verify expected rows and that sensitive values are not logged. |
+| NFR-001 — Role-based access control | Auth/role-related service logic | To assess | Security acceptance test evidence required. |
+| NFR-002 — Performance threshold | Load-test source and indexes | To assess | Use an actual measured result, not the presence of a test file or green build. |
+| NFR-003 — Audit trail logging | RequestHistory and DeveloperLogs write paths | To assess | Verify related records persist after a real operation. |
+| NFR-004 — Data integrity/rollback | Constraints, transaction paths and rollback test case | To assess | Record database-backed failure-path results. |
+| NFR-005 — Concurrency control | Version-based update and stale-update test case | To assess | Record conflict response and final stored state. |
+| NFR-006 — Maintainability | Controller → Service → Repository separation | To assess | Record build result and architecture review. |
+| **Total** | Applicable criterion count: **confirm against the approved M1 baseline** | Sum: **calculate after assessing rows** | Percentage: **must be calculated before submission** |
 
 The criterion-by-criterion calculation is intentionally not invented in this branch. Complete it before submission. A requirement or test method is not proof that an acceptance criterion passed.
 
