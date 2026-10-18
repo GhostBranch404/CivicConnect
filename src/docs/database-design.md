@@ -110,7 +110,7 @@ All tables also have NOT NULL requirements on the columns declared `NOT NULL` in
 - **Hosted provider:** Aiven for MySQL, with separate Staging and Production database environments.
 - **Application host:** Azure App Service (`civicconnect1`) is the current deployment target; it is separate from the database provider.
 - **Configuration:** the application reads `ConnectionStrings:DefaultConnection`. Supply it through local .NET User Secrets or environment/deployment settings. Do not commit connection strings or include them in logs.
-- **Verification record:** the team reports that deployed connectivity and persistence checks succeeded. Preserve dated evidence for the intended environment, migration state, create/read/status-update operation and related history/log rows. TLS/network settings, backup/restore and encryption settings still need direct provider-side verification. Never record secret values.
+- **Verification record:** the team reports that deployed connectivity and persistence checks succeeded. Preserve dated evidence for the intended Aiven environment, migration state, create/read/status-update operation and related history/log rows. TLS/network settings, backup/restore and encryption settings still need direct provider-side verification. Never record secret values.
 
 
 ## 6. Data Dictionary
@@ -486,7 +486,7 @@ The application should fail safely when persistence is unavailable and must not 
 The following remain controlled future decisions rather than assumptions hidden in code:
 
 - final authentication/identity schema;
-- final production MySQL hosting configuration;
+- final production MySQL operating configuration, including Aiven plan limits, TLS, encryption, backup/restore and cost;
 - backup/recovery targets;
 - exact category list;
 - any statuses beyond Pending/In Progress/Resolved;
