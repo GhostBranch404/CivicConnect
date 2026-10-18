@@ -1363,9 +1363,9 @@ relevant scalability, availability and SPOF implications.
 | NFR-002 | Indexing/query-efficiency considerations                                                        | Initial indexes only; final optimisation after measurement | Initial schema indexes                                                             | Performance verification later | Planned                  |
 | NFR-003 | RequestHistory + responsible user/timestamps/status/actions                                     | Audit/history separation and transactional writes          | Request history writes implemented for current request create/status paths         | Planned                        | In Development           |
 
-#  
+## ERD
 
-## ![CivicConnect Entity Relationship Diagram](CivicConnect/docs/images/media/CivicConnectERD.png)ERD
+![CivicConnect Entity Relationship Diagram](src/docs/images/media/CivicConnectERD.png)
 
 # Forward Engineering Considerations
 
