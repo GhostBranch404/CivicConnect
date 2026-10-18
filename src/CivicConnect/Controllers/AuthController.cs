@@ -134,7 +134,72 @@ public sealed class AuthController : ControllerBase
         }
     }
 
-    // Records why the email failed (never the address, code or password) so devs can see it on the Logs page.
+    public sealed record ForgotPasswordBody(string? Email, string? Code, string? Token, string? NewPassword);
+
+    [HttpPost("forgot-password")]
+    [EnableRateLimiting("confirmation")]
+    public async Task<IActionResult> ForgotPassword(
+        [FromBody] ForgotPasswordBody body,
+        [FromServices] PasswordResetService reset,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await reset.RequestCodeAsync(body.Email, cancellationToken);
+            return Ok(new { Message = "If that email has an account, a reset code has been sent." });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Password reset email failed.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                Message = "We couldn't send the reset email. Try again in a few minutes."
+            });
+        }
+    }
+
+    [HttpPost("verify-reset-code")]
+    [EnableRateLimiting("confirmation")]
+    public async Task<IActionResult> VerifyResetCode(
+        [FromBody] ForgotPasswordBody body,
+        [FromServices] PasswordResetService reset)
+    {
+        try
+        {
+            var token = await reset.VerifyCodeAsync(body.Email, body.Code);
+            if (token is null)
+                return BadRequest(new { Message = "That code is wrong or has expired. Request a new code." });
+            return Ok(new { Token = token });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+    }
+
+    [HttpPost("reset-password")]
+    [EnableRateLimiting("confirmation")]
+    public async Task<IActionResult> ResetPassword(
+        [FromBody] ForgotPasswordBody body,
+        [FromServices] PasswordResetService reset)
+    {
+        try
+        {
+            if (!await reset.ResetPasswordAsync(body.Token, body.NewPassword))
+                return BadRequest(new { Message = "Your reset session has expired. Start again." });
+            return Ok(new { Message = "Your password has been updated. You can now log in." });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+    }
+
+    // Records why the email failed
     private async Task LogDeliveryFailureAsync(string step, ConfirmationDeliveryException ex)
     {
         var cause = ex.InnerException ?? ex;
