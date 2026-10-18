@@ -2,7 +2,7 @@
 
 **SEN381 — Community Service Request Management Platform**
 
-CivicConnect is a web application for submitting, tracking, assigning and resolving community service requests. The project is being developed as a working application; Milestone 3 is a checkpoint, not the end of implementation.
+CivicConnect is a web application for submitting, tracking, assigning and resolving community service requests. This repository contains the final engineering documentation branch prepared for the SEN381 final submission. The release decision remains conditional on the evidence recorded in the PED and final release register.
 
 ## Current project position
 
@@ -11,8 +11,9 @@ CivicConnect is a web application for submitting, tracking, assigning and resolv
 - **Persistence:** MySQL with Dapper and MySqlConnector
 - **Schema management:** Version-controlled SQL migration scripts
 - **Application hosting target:** Azure App Service (`civicconnect1`)
-- **Hosted database:** MySQL, with separate Staging and Production databases. The active provider is not named here because it has not been confirmed in the project documentation.
-- **Current release status:** The deployed site is accessible and the team has reported successful database connectivity and persistence checks. CivicConnect is not yet production-ready; authentication/authorization and other release-readiness checks remain outstanding.
+- **Hosted databases:** Aiven for MySQL hosts separate Staging and Production database environments.
+- **Application hosting:** Azure App Service (`civicconnect1`); Azure hosts the application, not the MySQL databases.
+- **Current release status:** The team reports that the website is accessible and database connectivity/persistence checks succeeded. This documentation branch does not independently rerun those checks. Recommended decision: staging / conditional no-go for production until the remaining release checks are closed.
 
 ## Why these technologies?
 
@@ -63,7 +64,8 @@ Request history (`RequestHistory`) records business lifecycle events. `Developer
 - `src/CivicConnect/database/migrations/005_user_registration_confirmation.sql` — email confirmation fields
 - `Tests/CivicConnect.Tests/` — unit, integration and persistence test code
 - `src/docs/adr/` — architecture decision records
-- `CivicConnect_PED_M3.md` — milestone engineering document
+- `CivicConnect_PED_M3.md` — primary engineering document, updated with the final submission/release section
+- `src/docs/final-release-evidence.md` — release decision, evidence register and M1 scope-completion worksheet
 
 ## Local setup
 
@@ -133,6 +135,9 @@ Swagger is configured for the Development environment. The application also maps
 | `POST` | `/api/auth/login` | Log in to an active account |
 | `POST` | `/api/auth/confirm` | Confirm an account using its email and code |
 | `POST` | `/api/auth/resend-confirmation` | Resend a code for an unconfirmed account |
+| `POST` | `/api/auth/forgot-password` | Request a password-reset email code |
+| `POST` | `/api/auth/verify-reset-code` | Verify the reset code and receive a short-lived reset token |
+| `POST` | `/api/auth/reset-password` | Set a new password using the reset token |
 | `GET` | `/health` | Application health endpoint |
 
 Registration accepts `FullName`, `Email` and `Password` (at least 10 characters). The account is saved unconfirmed inside a database transaction that only commits once the confirmation email has been accepted by the mail server. Signing up again with the same email before confirming replaces the pending details and sends a new code; an email that already belongs to a confirmed, admin-created or deactivated account returns `409`. Confirmation codes expire after 10 minutes; a code can be tried five times before it must be resent. Signup and code endpoints are rate-limited. A user can log in after confirming their email; login currently returns the user profile and does not issue an authentication token.
@@ -197,11 +202,12 @@ The current CI workflow in `.github/workflows/ci.yml` runs on pushes and pull re
 - **Application URL:** https://civicconnect1-gwasb9d4guchefe9.southafricanorth-01.azurewebsites.net/
 - **Status:** The team has confirmed that the site opens successfully after the earlier HTTP 404 issue was resolved.
 - **Database configuration:** The database connection credential is stored in Azure application settings and is not committed to the repository.
-- **Database environments:** Separate Staging and Production databases are maintained. Use the intended environment for each test and do not use production data for routine development testing.
+- **Database provider:** Aiven for MySQL.
+- **Database environments:** Aiven hosts separate Staging and Production databases. Use the intended environment for each test and do not use production data for routine development testing.
 
 ### Verification recorded by the team
 
-The team has reported successful database connectivity and persistence checks. These checks confirm that the deployed application can connect to its configured database and that the tested data operations persist.
+The team has reported successful database connectivity and persistence checks. Treat this as team-reported evidence, not as a substitute for a dated test record showing the exact environment, operation, result and deployed commit. This documentation change does not independently rerun the live checks.
 
 Do not treat this result alone as proof that every API endpoint, role permission, transaction rollback path, encryption setting, backup or restore procedure has been verified.
 
@@ -230,7 +236,8 @@ Do not treat this result alone as proof that every API endpoint, role permission
 - [ ] Keep evidence of the database/persistence checks, including the test steps and results.
 - [ ] Verify database TLS configuration and document the provider's backup/restore arrangements.
 - [ ] Run and record the relevant unit, API integration and database-backed tests.
-- [ ] Complete and verify authentication/RBAC, staff assignment and management reporting before claiming those features are ready.
+- [ ] Verify authentication and authorization end to end. Login currently returns a user profile but does not issue an authentication token; do not claim token-based session security or complete server-side RBAC until implemented and tested.
+- [ ] Complete and verify staff assignment and management reporting before claiming those features are ready.
 
 ## Security and team workflow
 
@@ -247,4 +254,5 @@ Do not treat this result alone as proof that every API endpoint, role permission
 - [ADR-003 — Persistence and data integrity](src/docs/adr/ADR-003_data_persistence.md)
 - [ADR-004 — Hosting and release environment](src/docs/adr/ADR-004_hosting_and_release.md)
 - [Database design](src/docs/database-design.md)
+- [Final release evidence register](src/docs/final-release-evidence.md)
 - [SQL migration](src/CivicConnect/database/migrations/001_initial_schema.sql)
