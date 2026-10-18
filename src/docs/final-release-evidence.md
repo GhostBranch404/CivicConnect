@@ -67,27 +67,3 @@ The criterion-by-criterion calculation is intentionally not invented in this bra
 | AI use | PED AI Usage Register | Retain actual tools/uses and human review. Do not claim AI-generated code passed tests unless results are recorded. |
 | Risks, defects and technical debt | PED risk register, ADRs and release limitations | Distinguish resolved historical issues from open release risks; link evidence for closed high-priority items. |
 
-## Final evidence checklist
-
-- [ ] Add the final full commit SHA and identify the exact assessed branch/tag.
-- [ ] Confirm the current deployed commit and successful Azure workflow run.
-- [ ] Retest the homepage, `/health` and a representative API route; save date and outcome.
-- [ ] Save database evidence for the intended Aiven environment without connection strings or secrets.
-- [ ] Run `dotnet restore CivicConnect.sln`, `dotnet build CivicConnect.sln --configuration Release`, and `dotnet test CivicConnect.sln --configuration Release`; record pass/fail/skip counts and environment.
-- [ ] Record transaction rollback and concurrent-update/conflict test results.
-- [ ] Verify TLS, encryption-at-rest, backups, restore process, retention and provider plan/cost.
-- [ ] Verify email registration and password reset end to end with redacted evidence.
-- [ ] Verify server-side role restrictions and negative access cases, or state clearly that production use is not approved.
-- [ ] Complete the M1 acceptance-criteria worksheet and calculate the scope-completion percentage.
-- [ ] Update the final RTM and risk/defect/decision/AI registers to reflect actual evidence, not planned work.
-- [ ] Rehearse the demo and each team member's individual defence.
-
-## Suggested final demonstration flow
-
-1. **Product demonstration:** show the visitor dashboard, registration/email confirmation, sign-in, request submission, request tracking/history and staff workflow that is genuinely available.
-2. **M1 scope versus final delivery:** compare approved acceptance criteria with working evidence and identify partial/deferred requirements.
-3. **M3 issues and fixes:** explain the Azure 404 as a historical issue that was later reported resolved; show what evidence confirms the current deployment.
-4. **Engineering evidence:** show architecture/ADRs, database design and migrations, test results, RTM, risk register and release decision.
-5. **Conclusion:** state what the system can currently demonstrate, its limitations and why the release decision remains staging/conditional no-go until open checks close.
-
-Each team member should be ready to explain their own contribution, trace one requirement through implementation and test evidence, defend one engineering decision, and describe one remaining limitation or risk.
