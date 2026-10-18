@@ -12,6 +12,10 @@ Cornelius Greeff 601357 \| Aiden Moses 603067 \| Keegan Stroud 601609
 ## Table of Contents
 
 - [PED v4.0 Final Submission and Release Decision](#ped-v40-final-submission-and-release-decision)
+- [Final Scope-to-Delivery Reflection](#final-scope-to-delivery-reflection)
+- [Final Risk and Defect Disposition](#final-risk-and-defect-disposition)
+- [Final RTM v4.0: Implementation and Verification Status](#final-rtm-v40-implementation-and-verification-status)
+- [Final Evidence and Release Conditions](#final-evidence-and-release-conditions)
 - [Milestone 3 Review of the M1 and M2 Baselines](#milestone-3-review-of-the-m1-and-m2-baselines)
 - [M3 Evidence Status and Document Changes](#m3-evidence-status-and-document-changes)
 - [Project Overview](#project-overview)
@@ -107,7 +111,7 @@ The criterion-by-criterion calculation remains a submission action and is record
 - **Security and recovery:** verify Aiven TLS, encryption-at-rest, backup/restore, and relevant failure-path/concurrency tests directly; do not describe these as verified based only on design documents.
 
 
-## Final RTM v4.0 — implementation and verification disposition
+## Final RTM v4.0: Implementation and Verification Status
 
 This final disposition supplements the historic M1/M2/M3 matrices rather than deleting the approved baseline. It distinguishes code present in the repository from evidence that a requirement passed acceptance testing. The status column is conservative because a current test-run report and a dated end-to-end evidence pack were not present in the repository when this documentation branch was prepared.
 
