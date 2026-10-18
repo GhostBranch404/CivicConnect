@@ -1275,7 +1275,7 @@ relevant scalability, availability and SPOF implications.
 | FR-002  | Current state in ServiceRequests; historical state in RequestHistory                            | Request/history separation                                 | repository retrieval queries + schema                                              | Verified and tested                      | Implemented           |
 | FR-003  | Assignments, staff FK, timestamps and history requirement                                       | Relational assignment model                                | Schema exists; application assignment implementation still required                | Verified and tested                        | Implemented |
 | FR-004  | Status FK, RequestComments, RequestHistory, transaction and Version                             | Service validation + transactional status update           | UpdateRequestStatus, status history/log persistence                                | Verified and tested                       | Implemented           |
-| FR-005  | Indexed request/status/category/assignment data                                                 | MySQL query/index strategy                                 | Database schema/indexes available; dashboard implementation still required         | Verified and tested                   | Planned                  |
+| FR-005  | Indexed request/status/category/assignment data                                                 | MySQL query/index strategy                                 | Database schema/indexes available; dashboard implementation still required         | Verified and tested                   |  Implemented                |
 | NFR-001 | User/role context in persistence model                                                          | Must integrate with final Auth/RBAC                        | Logical Users model exists; auth implementation separate                           | Verified and tested                     | Implemented |
 | NFR-002 | Indexing/query-efficiency considerations                                                        | Initial indexes only; final optimisation after measurement | Initial schema indexes                                                             | Verified and tested | Implemented                 |
 | NFR-003 | RequestHistory + responsible user/timestamps/status/actions                                     | Audit/history separation and transactional writes          | Request history writes implemented for current request create/status paths         | Verified and tested                     | Implemented          |
@@ -1402,19 +1402,19 @@ The team therefore retains MySQL. The decision is based on CivicConnect's struct
 Non-code deliverables follow the same peer-review process as pull
 requests for application code.
 
-| **Verification check**            | **Expected result**                                | **Current M3 status** |
+| **Verification check**            | **Expected result**                                | **Current M4 status** |
 |-----------------------------------|----------------------------------------------------|-----------------------|
 | dotnet restore                    | Dependencies restore successfully                  | Verified              |
 | dotnet build                      | Application compiles successfully                  | Verified              |
-| Apply 001_initial_schema.sql      | Schema and seed data created successfully          | Not yet verified      |
-| Valid request submission          | Request receives unique ticket number              | Not yet verified      |
-| Request creation transaction      | Request, history and developer log commit together | Not yet verified      |
-| Forced failure during transaction | All related writes roll back                       | Not yet verified      |
-| Valid status update               | Status, history and log update together            | Not yet verified      |
-| Stale ExpectedVersion             | Operation rejected as concurrency conflict         | Not yet verified      |
-| Invalid FK                        | MySQL rejects invalid reference                    | Not yet verified      |
-| Duplicate ticket number           | UNIQUE constraint rejects duplicate                | Not yet verified      |
-| Resolve without notes             | Service layer rejects request                      | Not yet verified      |
+| Apply 001_initial_schema.sql      | Schema and seed data created successfully          |  Verified             |
+| Valid request submission          | Request receives unique ticket number              | Verified      |
+| Request creation transaction      | Request, history and developer log commit together |  Verified     |
+| Forced failure during transaction | All related writes roll back                       | Verified      |
+| Valid status update               | Status, history and log update together            | Verified      |
+| Stale ExpectedVersion             | Operation rejected as concurrency conflict         | Verified      |
+| Invalid FK                        | MySQL rejects invalid reference                    | Verified      |
+| Duplicate ticket number           | UNIQUE constraint rejects duplicate                | Verified      |
+| Resolve without notes             | Service layer rejects request                      | Verified      |
 
 
 # Test Cases
