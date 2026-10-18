@@ -16,6 +16,7 @@ Cornelius Greeff 601357 \| Aiden Moses 603067 \| Keegan Stroud 601609
 - [Final Risk and Defect Disposition](#final-risk-and-defect-disposition)
 - [Final RTM v4.0: Implementation and Verification Status](#final-rtm-v40-implementation-and-verification-status)
 - [Final Evidence and Release Conditions](#final-evidence-and-release-conditions)
+- [Final Release Evidence Register](src/docs/final-release-evidence.md)
 - [Milestone 3 Review of the M1 and M2 Baselines](#milestone-3-review-of-the-m1-and-m2-baselines)
 - [M3 Evidence Status and Document Changes](#m3-evidence-status-and-document-changes)
 - [Project Overview](#project-overview)
@@ -63,7 +64,7 @@ Cornelius Greeff 601357 \| Aiden Moses 603067 \| Keegan Stroud 601609
 
 # PED v4.0 Final Submission and Release Decision
 
-This section updates the document for the final submission while preserving the earlier M1, M2 and M3 material as project history. The requirements, design rationale, RTM, test cases and registers below remain the engineering record; where an older section describes a historical status, use this final section and the [Final Release Evidence Register](src/docs/final-release-evidence.md) for the latest known position.
+This section updates the document for the final submission while preserving the earlier M1, M2 and M3 material as project history. The requirements, design rationale, RTM, test cases and registers below remain the engineering record; where an older section describes a historical status, use this final section and the [Final Release Evidence Register](src/docs/final-release-evidence.md) for the latest known position. The [Final Presentation and Individual Defence Guide](src/docs/final-presentation-and-defence.md) provides a rehearsal outline, not replacement evidence.
 
 ## Final project position
 
@@ -1701,9 +1702,9 @@ requests for application code.
 
 File:`Tests/CivicConnect.Tests/LoadTest.cs` 
 
-**Result:** System tests for the response time expecting it to be below 200 ms and failed requests below 1%.
+**Acceptance target:** Response time below 200 ms and failed requests below 1%. Record the actual measured load-test result, settings and environment before claiming the target was met; the existence of a test class is not a performance result.
 
-Currently the system has 26 test cases that all succeed.
+An earlier M3 note reported that 26 test cases succeeded at that checkpoint. Treat this as a historical statement only: the current final submission must retain test output for the exact assessed commit, including pass/fail/skip counts. No current full-suite result is attached by this documentation update.
 
 # Agile Development Methodology
 

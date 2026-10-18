@@ -11,8 +11,8 @@ The UI is a single page served by the ASP.NET app from `src/CivicConnect/wwwroot
 
 A few big pieces of work shaped the UI as it is now:
 
-- **We built every screen from the wireframes** and wired them to the real API instead of placeholder data.
-- **We fixed the Azure 404.** The project was compiling an old stray `src/Program.cs`, so the site never started properly. Removing it (and untracking about 500 committed `bin/` and `obj/` build files) sorted it out.
+- **We implemented the main UI journeys from the wireframes** and connected the implemented workflows to API calls. Reports and Analytics remain placeholder pages, as recorded below; they should not be presented as completed features.
+- **Deployment issue — historical status.** Azure returned 404 for `/` and `/swagger` on 15 October 2026. The team later reported the issue resolved after addressing the startup/project-file problem and build artifacts. Record the deployed commit and current route checks in the [final release register](final-release-evidence.md) before treating the fix as independently verified.
 - **We removed all demo data.** There are no hard-coded accounts or sample requests any more. Everything comes from the database, and the only thing the browser remembers is who is signed in.
 - **We added a "Rejected" outcome.** Staff can reject a request, but they have to give a reason, and the requester sees that reason. "My Requests" is split into *Current Requests* and *Request History* so finished work doesn't clutter the list.
 - **We added user management for Admins and Devs.** They can search users, promote someone or remove their access, and add workers. Every one of those changes needs a *second* admin to approve it before it happens.
@@ -74,7 +74,7 @@ We kept a small set of building blocks and reused them everywhere, so every scre
 
 ### Contrast and readability
 
-We measured every main text and badge colour pair against WCAG 2.1, and all of them meet level AA (at least 4.5 : 1):
+The UI design notes record the following contrast ratios as intended measurements. Treat them as verified WCAG results only if the team can reproduce them using a contrast-checking tool and retain the output; otherwise label them as provisional and recheck before claiming a formal accessibility pass. The WCAG 2.1 AA target for normal text is at least 4.5:1:
 
 | Colour pair | Contrast | Result |
 |---|---|---|
@@ -124,7 +124,7 @@ Detail pages sit under the list they came from: My Requests → request details,
 | Manage Users, approvals, Add a worker | | | | ✓ | ✓ |
 | Logs | | | | | ✓ |
 
-If you type the address of a page you're not allowed to see, you're simply sent back to the dashboard. The admin and logs endpoints also check your role on the server, so hiding the link isn't the only protection.
+If someone navigates to a page outside their current UI role, the client redirects them. Some administrative API handlers also contain role-related checks, but login does not currently issue an authentication token. This is not evidence of complete authenticated server-side authorization; protected endpoints need explicit negative tests before production use.
 
 ### Titles and back links
 
@@ -138,7 +138,7 @@ We checked the main screens at 1280 px (desktop) and 390 px (phone): the dashboa
 
 ## Screens and user journeys
 
-Here's where each screen stands right now:
+The status below describes what the UI/design record says is implemented, not a claim that every journey has passed end-to-end acceptance testing. Use the final RTM and saved test output for release claims.
 
 | Screen | Status | Notes |
 |---|---|---|
@@ -188,7 +188,7 @@ These scripts in `src/CivicConnect/database/migrations` add what the screens abo
 1. `002_user_accounts.sql` – adds `Users.PasswordHash` for sign-in.
 2. `003_rejected_status.sql` – adds the Rejected status (4).
 3. `004_admin_approvals.sql` – creates the `AdminApprovals` table for two-admin approval.
-4. `005_user_registration_confirmation.sql` – adds the email confirmation columns. Only new databases need this; the Azure database already has them.
+4. `005_user_registration_confirmation.sql` – adds the email confirmation columns. Verify the applied migration state against both Aiven environments separately; do not assume Staging and Production are at the same schema version just because one environment works. Apply any Production migration only through the team's controlled release procedure.
 
 
 
@@ -196,7 +196,7 @@ These scripts in `src/CivicConnect/database/migrations` add what the screens abo
 
 The password-reset flow is present in the current source: the UI calls `POST /api/auth/forgot-password`, `POST /api/auth/verify-reset-code` and `POST /api/auth/reset-password`. The service sends a 6-digit code and exchanges a valid code for a short-lived reset token. This is evidence of an implemented flow, not proof of successful live email delivery or complete security testing; retain test output and a redacted end-to-end result.
 
-The earlier Azure 404 is a historical defect, not the current status. The team reports that the site became accessible after the startup/project-file issue was fixed. The exact currently deployed commit and successful workflow run should still be recorded in the [Final Release Evidence Register](final-release-evidence.md).
+The earlier Azure 404 is a historical defect, not the latest reported status. The team reports that the site became accessible after the startup/project-file issue was fixed. The exact deployed commit and successful workflow run should still be recorded in the [Final Release Evidence Register](final-release-evidence.md). This documentation branch is not automatically deployed by the current workflow.
 
 ### Known limitations to state honestly
 

@@ -7,12 +7,12 @@
 - **Repository:** https://github.com/GhostBranch404/CivicConnect
 - **Documentation branch:** `docs/ped-v4-final`
 - **Submission commit SHA:** Record the final full commit SHA after all changes are committed.
-- **Assessed branch/tag:** Confirm the exact branch or tag to be assessed.
+- **Suggested assessed branch:** `docs/ped-v4-final` (this branch was created from `staging`; assess this branch only if the team intends it to be the submitted version).
 - **Azure app:** https://civicconnect1-gwasb9d4guchefe9.southafricanorth-01.azurewebsites.net/
 - **Application host:** Azure App Service, `civicconnect1`.
 - **Database provider:** Aiven for MySQL hosts separate Staging and Production databases.
 
-This documentation branch does not trigger deployment. The current Azure workflow deploys from `main`; do not describe this branch as deployed unless a workflow run confirms it.
+This documentation branch does not trigger deployment or the configured CI workflow. The current Azure workflow deploys from `main`, while CI targets `main` and `dev`. Do not describe this branch as deployed or tested by those workflows unless a run confirms it.
 
 ## Final release / go-live decision
 
@@ -55,7 +55,7 @@ The final percentage must be calculated against the **approved M1 acceptance cri
 | NFR-006 — Maintainability | Controller → Service → Repository separation | To assess | Record build result and architecture review. |
 | **Total** | Applicable criterion count: **confirm against the approved M1 baseline** | Sum: **calculate after assessing rows** | Percentage: **must be calculated before submission** |
 
-The criterion-by-criterion calculation is intentionally not invented in this branch. Complete it before submission. A requirement or test method is not proof that an acceptance criterion passed.
+The criterion-by-criterion calculation is intentionally left unscored because assigning values without the team's final acceptance-test outcomes would invent a result. Before submission, the team must apply the rubric against the approved M1 baseline, record the evidence for each applicable criterion, calculate the percentage and state any approved scope changes. A requirement, UI screen or test method is not proof that an acceptance criterion passed.
 
 ### Reflection prompts for the PED
 
@@ -71,14 +71,14 @@ The criterion-by-criterion calculation is intentionally not invented in this bra
 |---|---|---|
 | Architecture and design | `src/docs/adr/ADR-001_architectural_style.md`, `ADR-002_Tech_stack_and_persistence.md`, `ADR-003_data_persistence.md`, `ADR-004_hosting_and_release.md` | Decision records exist. Defend the layered monolith as a fit for team size and delivery window; discuss boundary and testing trade-offs. |
 | Database design | `src/docs/database-design.md`, SQL migrations, ERD image | Schema and persistence approach documented. Aiven hosts both environments. Keep credentials private. |
-| UI and wireframes | `src/docs/ui-design-decisions.md`, `src/docs/wireframes/` | Design decisions and wireframes documented. Analytics/reporting is still described as placeholder functionality. |
+| UI and wireframes | `src/docs/ui-design-decisions.md`, `src/docs/wireframes/` | Design decisions and wireframes documented. The screen-status table describes implementation, not automatic acceptance-test proof. Analytics/reporting is still described as placeholder functionality. |
 | Email registration | `src/CivicConnect/Controllers/AuthController.cs`, `Tests/CivicConnect.Tests/Integration/AuthApiIntegrationTests.cs`, README | Code and test cases exist. Capture actual test output and redacted inbox receipt before claiming live delivery is verified. |
 | Password reset | Auth controller, password-reset service, `src/CivicConnect/wwwroot/js/app.js` | Code-based reset flow exists in source. Capture automated results and end-to-end email evidence. |
 | Unit/integration/persistence testing | `Tests/CivicConnect.Tests/`, `.github/workflows/ci.yml` | Test source and CI workflow exist. CI currently targets `main` and `dev`, not this branch. Record actual run results. |
 | Azure deployment | `.github/workflows/main_civicconnect1.yml`, live app link above | Workflow deploys on `main` or manual dispatch. Record exact deployed SHA and successful run. |
 | Database/persistence | Team reports successful connectivity and persistence checks | Team-reported, not independently rerun in this documentation change. Attach date, environment, operation and outcome. |
 | Security / RBAC | PED security/RBAC sections and auth code | Login does not issue an authentication token. UI role navigation is not a replacement for server-side authorization. |
-| AI use | PED AI Usage Register | Retain actual tools/uses and human review. Do not claim AI-generated code passed tests unless results are recorded. |
+| Presentation / individual defence | `src/docs/final-presentation-and-defence.md` | Rehearsal outline for the demo, scope reflection, engineering evidence and individual questions. It is a speaking aid, not proof of implementation or test results. |\n| AI use | PED AI Usage Register | Retain actual tools/uses and human review. Do not claim AI-generated code passed tests unless results are recorded. |
 | Risks, defects and technical debt | PED risk register, ADRs and release limitations | Distinguish resolved historical issues from open release risks; link evidence for closed high-priority items. |
 
 
