@@ -10,9 +10,8 @@ CivicConnect is a web application for submitting, tracking, assigning and resolv
 - **Architecture:** 3-tier layered monolith — Controller → Service → Repository
 - **Persistence:** MySQL with Dapper and MySqlConnector
 - **Schema management:** Version-controlled SQL migration scripts
-- **Application hosting target:** Azure App Service (`civicconnect1`)
-- **Hosted databases:** Aiven for MySQL hosts separate Staging and Production database environments.
-- **Application hosting:** Azure App Service (`civicconnect1`); Azure hosts the application, not the MySQL databases.
+- **Application host:** Azure App Service (`civicconnect1`).
+- **Database host:** Aiven for MySQL hosts separate Staging and Production database environments; Azure hosts the application, not the databases.
 - **Current release status:** The team reports that the website is accessible and database connectivity/persistence checks succeeded. This documentation branch does not independently rerun those checks. Recommended decision: staging / conditional no-go for production until the remaining release checks are closed.
 
 ## Why these technologies?
@@ -33,7 +32,7 @@ A document database was considered, but is not the best fit for the current core
 - **Staff:** access the work queue and manage request progress/assignments.
 - **Management:** view oversight and reporting information.
 
-The current API includes request creation, collection/detail retrieval and status updates. Authentication/RBAC, assignment, management reporting and the full user experience remain work to complete or verify. Do not treat a documented requirement or test method as proof that a feature is finished.
+The repository includes a browser UI for request submission/history, staff workflows, user management and developer logs, alongside API endpoints for request and account operations. However, login does not issue an authentication token, Reports/Analytics are placeholders, and the completeness of server-side authorization and end-to-end behaviour must be judged from the final RTM and recorded test evidence. A screen or endpoint in source is not, by itself, proof that the requirement passed acceptance testing.
 
 ## Architecture
 
@@ -64,7 +63,7 @@ Request history (`RequestHistory`) records business lifecycle events. `Developer
 - `src/CivicConnect/database/migrations/005_user_registration_confirmation.sql` — email confirmation fields
 - `Tests/CivicConnect.Tests/` — unit, integration and persistence test code
 - `src/docs/adr/` — architecture decision records
-- `CivicConnect_PED_M3.md` — primary engineering document, updated with the final submission/release section
+- `CivicConnect_PED_M3.md` — primary engineering document, updated with the PED v4.0 final-submission and release-decision section
 - `src/docs/final-release-evidence.md` — release decision, evidence register and M1 scope-completion worksheet
 
 ## Local setup
@@ -255,4 +254,5 @@ Do not treat this result alone as proof that every API endpoint, role permission
 - [ADR-004 — Hosting and release environment](src/docs/adr/ADR-004_hosting_and_release.md)
 - [Database design](src/docs/database-design.md)
 - [Final release evidence register](src/docs/final-release-evidence.md)
+- [Final presentation and individual defence guide](src/docs/final-presentation-and-defence.md)
 - [SQL migration](src/CivicConnect/database/migrations/001_initial_schema.sql)
