@@ -1,4 +1,4 @@
-Milestone 3: Project Engineering Document (PED)
+CivicConnect — Project Engineering Document (PED) v4.0 Final
 
 CivicConnect - Community Service Request Management Platform  
   
@@ -11,6 +11,7 @@ Cornelius Greeff 601357 \| Aiden Moses 603067 \| Keegan Stroud 601609
 
 ## Table of Contents
 
+- [PED v4.0 Final Submission and Release Decision](#ped-v40-final-submission-and-release-decision)
 - [Milestone 3 Review of the M1 and M2 Baselines](#milestone-3-review-of-the-m1-and-m2-baselines)
 - [M3 Evidence Status and Document Changes](#m3-evidence-status-and-document-changes)
 - [Project Overview](#project-overview)
@@ -56,13 +57,44 @@ Cornelius Greeff 601357 \| Aiden Moses 603067 \| Keegan Stroud 601609
 - [References](#references)
 
 
+# PED v4.0 Final Submission and Release Decision
+
+This section updates the document for the final submission while preserving the earlier M1, M2 and M3 material as project history. The requirements, design rationale, RTM, test cases and registers below remain the engineering record; where an older section describes a historical status, use this final section and the [Final Release Evidence Register](src/docs/final-release-evidence.md) for the latest known position.
+
+## Final project position
+
+- **Repository:** https://github.com/GhostBranch404/CivicConnect
+- **Final documentation branch:** `docs/ped-v4-final` (confirm the exact assessed branch/tag before submission).
+- **Application hosting:** Azure App Service `civicconnect1`.
+- **Database hosting:** Aiven for MySQL hosts both separate Staging and Production databases.
+- **Current reported status:** the team reports that the website is accessible and database connectivity/persistence checks succeeded. This documentation change does not independently rerun those checks.
+- **Historical defect:** the homepage and `/swagger` returned 404 in the 15 October 2026 check; the team later reported the issue resolved. Do not present that old 404 as the current status. Record the deployed commit SHA and successful workflow run.
+- **Release decision:** staging / conditional no-go for production until current deployment, test, authentication/authorization, recovery and security evidence is complete.
+
+## Final scope-to-delivery reflection
+
+Calculate scope completion against the approved M1 acceptance criteria, not the number of features or document sections. For each applicable criterion, record evidence and assign 1.0 (fully met), 0.5 (partially met) or 0.0 (unmet). Use the formula: **sum of completion values ÷ number of applicable approved M1 acceptance criteria × 100**. Approved scope changes must be traceable; do not silently remove unmet criteria from the denominator.
+
+The criterion-by-criterion calculation remains a submission action and is recorded in the [Final Release Evidence Register](src/docs/final-release-evidence.md); no percentage is invented here. The final reflection must identify delivered Must-have outcomes, partial/deferred items, approved scope changes, stakeholder impact and one lesson learned. A requirement or test method is not proof that its acceptance criterion passed.
+
+## Final evidence and release conditions
+
+- **Architecture:** the code follows the documented Controller → Service → Repository layered monolith; explain the maintainability/testability benefit and risk of boundary violations.
+- **Persistence:** MySQL + Dapper + MySqlConnector remains the implementation baseline. Aiven hosts both database environments; Azure hosts the application. Team-reported persistence checks should be linked to dated evidence.
+- **Email and password reset:** source includes email-confirmation and code-based password-reset flows. Automated test methods exist; record actual test results and redacted end-to-end email evidence before claiming delivery is verified.
+- **Authentication:** the login endpoint currently returns a user profile but does not issue an authentication token. Do not claim secure token-based sessions or complete server-side RBAC without implementation and test evidence.
+- **CI/deployment:** `.github/workflows/ci.yml` targets `main` and `dev`; `.github/workflows/main_civicconnect1.yml` deploys on `main` or manual dispatch. This documentation branch does not automatically deploy.
+- **Security and recovery:** verify Aiven TLS, encryption-at-rest, backup/restore, and relevant failure-path/concurrency tests directly; do not describe these as verified based only on design documents.
+
+See [Final Release Evidence Register](src/docs/final-release-evidence.md) for the submission SHA/tag, evidence index, go-live recommendation and final checklist.
+
 # Milestone 3 Review of the M1 and M2 Baselines
 
 The M1 business need, stakeholder groups, scope and core requirements remain the starting point. M2 added the engineering baseline: ASP.NET Core, a layered monolith, MySQL, Dapper/MySqlConnector, SQL migrations, persistence tests, request history and developer logging. M3 retains those decisions while moving from design into implementation, deployment and evidence collection.
 
 The main M3 changes are the documented consideration of Aiven for hosted MySQL and Azure App Service for application hosting. These are separate decisions: Azure hosts the ASP.NET Core application; Aiven is the current documented candidate for managed MySQL. The database engine remains MySQL. Provider choice does not change the relational schema by itself, but the actual deployed connection and plan suitability must be verified.
 
-**Current evidence-based position:** the staging repository contains application source, the SQL migration, test methods, a CI workflow and an Azure deployment workflow. However, source files and test methods do not prove that the complete application works. On 15 October 2026, the reported Azure homepage and `/swagger` responses were both 404, although published .NET files were present and the process was listening on port 8080. The exact deployed commit, a successful Azure API response and a successful database-backed operation have not yet been recorded here. CivicConnect remains in development and is not approved for production.
+**Historical M3 position (15 October 2026):** the Azure homepage and `/swagger` returned 404 while published .NET files were present. The team later reported that the site was fixed and accessible, and that database connectivity/persistence checks succeeded. Those later checks are team-reported; the exact deployed commit and a dated evidence record should be attached before the final release claim. The current final recommendation is staging / conditional no-go for production until the release checks in the final section are closed.
 
 M1 and M2 content is retained as the historical and requirements baseline. M3 records changed decisions, current implementation evidence, unresolved risks and the proof still needed rather than marking unverified items as complete.
 
@@ -73,18 +105,18 @@ M1 and M2 content is retained as the historical and requirements baseline. M3 re
 | Schema and ERD | [Initial SQL migration](src/CivicConnect/database/migrations/001_initial_schema.sql), [database design](src/docs/database-design.md), ERD image | Schema and seed statements are version-controlled. Capture the live schema/ERD comparison and record a successful migration run. |
 | Persistence and logging | `RequestRepository.cs`, `RequestService.cs`, request/history/log models and persistence tests | Implementation and tests exist. Record a real create + status update, reload saved data, verify actor/history/developer log, and save test output/date/environment. |
 | Architecture | Controller, service, repository and models under `src/CivicConnect/` | Layered shape is visible in code. Confirm route behaviour, error handling, transaction/concurrency behaviour and requirement mapping through tests. |
-| Database provider | Aiven is documented as the current provider choice | Do not claim deployed connectivity until the app connects successfully and a database-backed operation is verified. Keep credentials out of Git. |
-| Azure release | `.github/workflows/main_civicconnect1.yml` deploys from `main`; `.github/workflows/ci.yml` tests `main` and `dev` | Reported `/` and `/swagger` returned 404 on 15 October 2026. Capture deployed SHA/workflow run, homepage response, real API response and database result after fixing. |
+| Database provider | Aiven for MySQL hosts both Staging and Production; Azure App Service hosts the application | The team reports successful connectivity/persistence checks. Preserve dated evidence for the intended environment and never commit credentials. |
+| Azure release | `.github/workflows/main_civicconnect1.yml` deploys from `main`; `.github/workflows/ci.yml` tests `main` and `dev` | The 15 October 404 is historical and was later reported resolved. Record current deployed SHA/workflow run, current route check and dated database evidence. |
 | Email registration | Resend SMTP settings documented in `README.md`; confirmation flow in authentication controller | Implementation documented; capture deployed inbox receipt, valid/expired code tests and send-failure result before marking end-to-end verification complete. |
 | Security and roles | Requirements/RBAC design and current controller routes | Authentication and role enforcement are not yet evidenced as complete. Do not claim protected production access until authorization is implemented and tested. |
 
-**Small document-change log**
+**Historical M3 document-change log**
 
 | Document | M3 change |
 |---|---|
-| `README.md` | Rewritten as a practical, evidence-based project entry point; explains choices, setup, routes, test prerequisites and current blockers. |
-| `CivicConnect_PED_M3.md` | Corrected M1/M2 review, added evidence status, release conditions and current risks; preserved earlier requirements and design material. |
-| `src/docs/adr/ADR-004_hosting_and_release.md` | Records Azure App Service, Aiven MySQL, alternatives, branch/workflow boundaries and unresolved release evidence. |
+| `README.md` | Practical project entry point; explains choices, setup, API routes, test prerequisites and release limitations. |
+| `CivicConnect_PED_M3.md` | Historical M3 edits; this file now also includes the PED v4.0 Final submission/release section while preserving earlier requirements and design material. |
+| `src/docs/adr/ADR-004_hosting_and_release.md` | Records Azure App Service, Aiven Staging/Production databases, branch/workflow boundaries and remaining release evidence. |
 | `src/docs/adr/ADR-002_Tech_stack_and_persistence.md` and `ADR-003_data_persistence.md` | Support the relational/Dapper decision and transactional persistence approach; hosting/release choices are recorded separately in ADR-004. |
 
 # Project Overview
@@ -1659,7 +1691,7 @@ refine the system based on their feedback, through Agile development
 this will greatly reduce need for any reworks to ensure that meets the
 expectations of the stakeholders (Gurnov, 2026).
 
-# AI Usage Register
+## Historical M3 AI Usage Register
 
 **Policy and Purpose**
 
@@ -1724,6 +1756,7 @@ Intelligence tools to be used in the following project:
 | **1.1**     | 20/09/2026 | Added Architectural Decisions (ADRs) and ASRs                                                    | Team          | Approved   |
 | **2.0**     | 28/09/2026 | Milestone 2 Architecture, Persistence, and Design Patterns Baseline                              | Team          | Approved   |
 | **3.1**     | 15/10/2026 | Reviewed M1/M2 continuity; documented Azure/Aiven hosting rationale, release evidence gaps and M3 risk updates; aligned README and ADR-004 | Team | Working draft |
+| **4.0**     | 18/10/2026 | Added final submission summary, scope-completion method, current reported deployment/database position, release decision and evidence index; retained M1–M3 history | Team | Final documentation branch; evidence items remain to be closed |
 
 **Baseline Review**
 
@@ -1757,11 +1790,11 @@ baseline.
 
 **M2 design baseline:** retained as the prior engineering baseline.
 
-**M3 implementation/release status:** **Conditionally accepted for continued development; not production-ready.** The team can continue implementation, but the outstanding evidence and deployment conditions above must be closed before making a release-readiness claim.
+**Historical M3 implementation/release status:** **Conditionally accepted for continued development; not production-ready at that checkpoint.** The team later reported that the Azure 404 was resolved and database checks succeeded. The final release recommendation is recorded at the beginning of this document and in `src/docs/final-release-evidence.md`.
 
 **M3 outstanding items / conditions:**
 
-- Azure root and `/swagger` returned 404 in the latest reported check; confirm the deployed artifact/commit and test a real API route.
+- Historical: Azure root and `/swagger` returned 404 on 15 October 2026; the team later reported the issue resolved. Confirm the current deployed artifact/commit and test a real API route.
 - Verify the actual deployed database connection, migration and a successful create/retrieve/status-update operation with history and developer logging.
 - Record the exact deployment SHA and workflow run; the Azure workflow currently deploys from `main`, while the CI workflow tests `main` and `dev` (not `staging`).
 - Complete and verify authentication/RBAC, staff assignment, management reporting, backup/restore and performance checks before a production-ready decision.
