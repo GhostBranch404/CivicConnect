@@ -46,9 +46,9 @@ Requests link to users, categories, statuses, assignments and history. Foreign k
 - Confirm authentication token/session behaviour and server-side role restrictions; the current login endpoint does not issue an authentication token.
 
 ## Evidence links
-- [README](../../README.md)
-- [Azure deployment workflow](../../.github/workflows/main_civicconnect1.yml)
-- [CI workflow](../../.github/workflows/ci.yml)
-- [Initial schema migration](../../src/CivicConnect/database/migrations/001_initial_schema.sql)
+- [README](../../../README.md)
+- [Azure deployment workflow](../../../.github/workflows/main_civicconnect1.yml)
+- [CI workflow](../../../.github/workflows/ci.yml)
+- [Initial schema migration](../../../src/CivicConnect/database/migrations/001_initial_schema.sql)
 - [Database design](../database-design.md)
 - [Dapper/persistence decision](ADR-002_Tech_stack_and_persistence.md)
