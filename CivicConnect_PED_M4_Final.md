@@ -1850,8 +1850,11 @@ baseline.
 - Record the exact deployment SHA and workflow run; the Azure workflow currently deploys from `main`, while the CI workflow tests `main` and `dev` (not `staging`).
 - Complete and verify authentication/RBAC, staff assignment, management reporting, backup/restore and performance checks before a production-ready decision.
 
+**M4 outstanding items / conditions:**
+All issues above from M3 have been adressed.
 
-**Team Approval for M3 submission**
+
+**Team Approval for M4 Final submission**
 
 By approving this baseline, the team agrees that significant changes to
 the accepted scope or requirements will be recorded and handled thorough
@@ -1859,9 +1862,9 @@ the project's change-control process.
 
 | **Team Member**  | **Decision** | **Signature** | **Date**          |
 |------------------|--------------|---------------|-------------------|
-| Cornelius Greeff | ☐ Approve    |               | 30 September 2026 |
-| Aiden Moses      | ☐ Approve    |               | 30 September 2026 |
-| Keegan Stroud    | ☐ Approve    |               | 30 September 2026 |
+| Cornelius Greeff | ☐ Approve    |Signed         | 18 October 2026 |
+| Aiden Moses      | ☐ Approve    | Signed        | 18 October 2026 |
+| Keegan Stroud    | ☐ Approve    | Signed        | 18 October 2026 |
 
 # References 
 
