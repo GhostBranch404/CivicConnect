@@ -1,6 +1,5 @@
 # CivicConnect – UI design decisions
 
-*Last updated: 16 October 2026 · Hosted on Azure App Service with an Aiven MySQL database*
 
 This page explains how the CivicConnect front end looks and behaves, and more importantly *why* we built it that way. It covers the colours, type and components we settled on, how navigation works for each role, the state of each screen, and what we still want to improve.
 
@@ -8,7 +7,7 @@ The UI is a single page served by the ASP.NET app from `src/CivicConnect/wwwroot
 
 ---
 
-## What changed along the way
+## What changed 
 
 A few big pieces of work shaped the UI as it is now:
 
@@ -191,25 +190,3 @@ These scripts in `src/CivicConnect/database/migrations` add what the screens abo
 3. `004_admin_approvals.sql` – creates the `AdminApprovals` table for two-admin approval.
 4. `005_user_registration_confirmation.sql` – adds the email confirmation columns. Only new databases need this; the Azure database already has them.
 
----
-
-## Still to do
-
-### UI
-
-- **Keyboard focus audit.** Give buttons, links, tabs and clickable table rows a clearly visible focus outline, then test the whole app using only the keyboard.
-- **Mobile pass on every page.** Request details, staff details, the queue and the logs page haven't been checked at phone width yet.
-- **Secure sessions.** Add a proper session (cookie or JWT) and check the user's role on every API endpoint. Right now the API trusts the user ID the browser sends, and the request list isn't role-checked.
-- **Forgot password.** Build a real reset flow; it can reuse the email code we now send at sign-up.
-- **Update the wireframes** to match what we actually built: the new dashboard, register and confirm-email screens, Request History, Reject, Manage Users, Add a worker and Logs.
-- **Screenshots** of the live Azure app with real data for each role.
-
-### Development
-
-- **Confirmation emails need a verified domain.** Resend only delivers to the account owner's address until a domain is verified, so sign-up only fully works for everyone once that's set up (or we switch to another SMTP provider).
-- **Send approval notifications by email** instead of only writing them to the server log.
-- **Build the Reports and Analytics pages.**
-- **Add a Priority column** to `ServiceRequests` if we still want priority.
-- **Rate-limit the browser-error logging endpoint.**
-- **Check the Aiven database** has migrations 003 and 004 applied and at least two real Admins (so approvals can happen).
-- **Remove the local test accounts** from the Aiven database before the final demo.
