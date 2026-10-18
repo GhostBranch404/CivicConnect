@@ -183,7 +183,12 @@
     const page = back ? back.split("/")[1] : "";
     location.hash = page && ACCESS[page] && ACCESS[page].includes(appRole(user.role)) ? back : HOME[appRole(user.role)];
   }
-  function signOut() { session.user = null; store.set("user", null); store.set("returnTo", null); location.hash = "#/dashboard"; }
+  // Sign out: clear the saved user, then reload the page on the dashboard so everything renders as a guest.
+  function signOut() {
+    session.user = null; store.set("user", null); store.set("returnTo", null);
+    location.replace(location.pathname + location.search + "#/dashboard");
+    location.reload();
+  }
 
   // Ask a guest to sign in. "Sign in" remembers where they were heading and opens the sign-in screen.
   function promptSignIn(target, why) {
@@ -207,8 +212,8 @@
     // Everyone (signed in or not) starts with the same dashboard and can report issues; role pages come after.
     Requester: [["#/dashboard", "Dashboard", I.home], ["#/my-requests", "My Requests", I.list], ["#/submit", "Submit Request", I.plus]]
   };
-  NAV.Staff = [...NAV.Requester, ["#/queue", "Request Queue", I.inbox], ["#/assignments", "My Assignments", I.user], ["#/reports", "Reports", I.report]];
-  NAV.Manager = [...NAV.Requester, ["#/management", "Management", I.clipboard], ["#/queue", "Request Queue", I.inbox], ["#/reports", "Reports", I.report], ["#/analytics", "Analytics", I.chart], ["#/users", "Users", I.users]];
+  NAV.Staff = [...NAV.Requester, ["#/queue", "Request Queue", I.inbox], ["#/assignments", "My Assignments", I.user]];
+  NAV.Manager = [...NAV.Requester, ["#/management", "Management", I.clipboard], ["#/queue", "Request Queue", I.inbox]];
   NAV.Dev = [...NAV.Manager, ["#/logs", "Logs", I.logs]];
   NAV.Guest = NAV.Requester;
   const HOME = { Requester: "#/dashboard", Staff: "#/dashboard", Manager: "#/dashboard", Dev: "#/dashboard" };
@@ -993,22 +998,12 @@
     };
   }
 
-  async function viewUsers() {
-    const users = await api.users();
-    render(`<div class="page-head"><h1>Users</h1></div><div class="card"><div class="table-wrap"><table>
-      <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th></tr></thead>
-      <tbody>${users.map(u => `<tr><td>${esc(u.fullName)}</td><td class="muted">${esc(u.email)}</td><td>${esc(roleLabel(u.role))}${u.isActive === false ? ` <span class="tag-off">No access</span>` : ""}</td><td class="muted">${fmtDate(u.createdAt)}</td></tr>`).join("") || `<tr><td colspan="4" class="empty">No users yet.</td></tr>`}</tbody></table></div></div>
-      <p class="muted" style="margin-top:12px">New sign-ups are Requesters. Promote people or remove their access from the Dashboard.</p>`);
-  }
-
-  const viewPlaceholder = (title, text) => render(`<div class="page-head"><h1>${title}</h1></div><div class="card empty">${text}</div>`);
-
   // ---------- Router ----------
   const ACCESS = {
     "dashboard": ["Requester", "Staff", "Manager", "Dev"], "my-requests": ["Requester", "Staff", "Manager", "Dev"],
     "submit": ["Requester", "Staff", "Manager", "Dev"], "request": ["Requester", "Staff", "Manager", "Dev"],
-    "queue": ["Staff", "Manager", "Dev"], "assignments": ["Staff"], "manage": ["Staff", "Manager", "Dev"], "reports": ["Staff", "Manager", "Dev"],
-    "management": ["Manager", "Dev"], "analytics": ["Manager", "Dev"], "users": ["Manager", "Dev"], "add-user": ["Manager", "Dev"], "logs": ["Dev"]
+    "queue": ["Staff", "Manager", "Dev"], "assignments": ["Staff"], "manage": ["Staff", "Manager", "Dev"],
+    "management": ["Manager", "Dev"], "add-user": ["Manager", "Dev"], "logs": ["Dev"]
   };
 
   async function route() {
@@ -1043,11 +1038,8 @@
         case "queue": return await viewQueue(false);
         case "assignments": return await viewQueue(true);
         case "management": return await viewManagement();
-        case "users": return await viewUsers();
         case "add-user": return viewAddUser();
         case "logs": return await viewLogs();
-        case "reports": return viewPlaceholder("Reports", "Exportable reports will appear here once a reporting endpoint is added.");
-        case "analytics": return viewPlaceholder("Analytics", "Trends over time will appear here in a later milestone.");
       }
     } catch (err) {
       if (!err.status) reportError(`Page ${location.hash} failed: ${err.message}`, err.stack);

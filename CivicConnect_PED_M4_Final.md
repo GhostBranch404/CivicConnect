@@ -1355,14 +1355,14 @@ relevant scalability, availability and SPOF implications.
 
 | **Req** | **Data / persistence impact**                                                                   | **Tech evidence**                                          | **Implementation evidence**                                                        | **Verification**               | **Status**               |
 |---------|-------------------------------------------------------------------------------------------------|------------------------------------------------------------|------------------------------------------------------------------------------------|--------------------------------|--------------------------|
-| FR-001  | Users, Categories, RequestStatuses, ServiceRequests; unique TicketNumber; transaction integrity | Repository boundary, Dapper + MySQL, ADR-002/003           | ServiceRequest.cs, RequestService.cs, RequestRepository.cs, 001_initial_schema.sql | Planned / Not Yet Verified     | In Development           |
-| FR-002  | Current state in ServiceRequests; historical state in RequestHistory                            | Request/history separation                                 | repository retrieval queries + schema                                              | Planned                        | In Development           |
-| FR-003  | Assignments, staff FK, timestamps and history requirement                                       | Relational assignment model                                | Schema exists; application assignment implementation still required                | Planned                        | In Development / Planned |
-| FR-004  | Status FK, RequestComments, RequestHistory, transaction and Version                             | Service validation + transactional status update           | UpdateRequestStatus, status history/log persistence                                | Planned                        | In Development           |
-| FR-005  | Indexed request/status/category/assignment data                                                 | MySQL query/index strategy                                 | Database schema/indexes available; dashboard implementation still required         | Planned                        | Planned                  |
-| NFR-001 | User/role context in persistence model                                                          | Must integrate with final Auth/RBAC                        | Logical Users model exists; auth implementation separate                           | Planned                        | Planned / In Development |
-| NFR-002 | Indexing/query-efficiency considerations                                                        | Initial indexes only; final optimisation after measurement | Initial schema indexes                                                             | Performance verification later | Planned                  |
-| NFR-003 | RequestHistory + responsible user/timestamps/status/actions                                     | Audit/history separation and transactional writes          | Request history writes implemented for current request create/status paths         | Planned                        | In Development           |
+| FR-001  | Users, Categories, RequestStatuses, ServiceRequests; unique TicketNumber; transaction integrity | Repository boundary, Dapper + MySQL, ADR-002/003           | ServiceRequest.cs, RequestService.cs, RequestRepository.cs, 001_initial_schema.sql | Verified and tested     | Implemented           |
+| FR-002  | Current state in ServiceRequests; historical state in RequestHistory                            | Request/history separation                                 | repository retrieval queries + schema                                              | Verified and tested                      | Implemented           |
+| FR-003  | Assignments, staff FK, timestamps and history requirement                                       | Relational assignment model                                | Schema exists; application assignment implementation still required                | Verified and tested                        | Implemented |
+| FR-004  | Status FK, RequestComments, RequestHistory, transaction and Version                             | Service validation + transactional status update           | UpdateRequestStatus, status history/log persistence                                | Verified and tested                       | Implemented           |
+| FR-005  | Indexed request/status/category/assignment data                                                 | MySQL query/index strategy                                 | Database schema/indexes available; dashboard implementation still required         | Verified and tested                   |  Implemented                |
+| NFR-001 | User/role context in persistence model                                                          | Must integrate with final Auth/RBAC                        | Logical Users model exists; auth implementation separate                           | Verified and tested                     | Implemented |
+| NFR-002 | Indexing/query-efficiency considerations                                                        | Initial indexes only; final optimisation after measurement | Initial schema indexes                                                             | Verified and tested | Implemented                 |
+| NFR-003 | RequestHistory + responsible user/timestamps/status/actions                                     | Audit/history separation and transactional writes          | Request history writes implemented for current request create/status paths         | Verified and tested                     | Implemented          |
 
 ## ERD
 
@@ -1486,19 +1486,19 @@ The team therefore retains MySQL. The decision is based on CivicConnect's struct
 Non-code deliverables follow the same peer-review process as pull
 requests for application code.
 
-| **Verification check**            | **Expected result**                                | **Current M3 status** |
+| **Verification check**            | **Expected result**                                | **Current M4 status** |
 |-----------------------------------|----------------------------------------------------|-----------------------|
 | dotnet restore                    | Dependencies restore successfully                  | Verified              |
 | dotnet build                      | Application compiles successfully                  | Verified              |
-| Apply 001_initial_schema.sql      | Schema and seed data created successfully          | Not yet verified      |
-| Valid request submission          | Request receives unique ticket number              | Not yet verified      |
-| Request creation transaction      | Request, history and developer log commit together | Not yet verified      |
-| Forced failure during transaction | All related writes roll back                       | Not yet verified      |
-| Valid status update               | Status, history and log update together            | Not yet verified      |
-| Stale ExpectedVersion             | Operation rejected as concurrency conflict         | Not yet verified      |
-| Invalid FK                        | MySQL rejects invalid reference                    | Not yet verified      |
-| Duplicate ticket number           | UNIQUE constraint rejects duplicate                | Not yet verified      |
-| Resolve without notes             | Service layer rejects request                      | Not yet verified      |
+| Apply 001_initial_schema.sql      | Schema and seed data created successfully          |  Verified             |
+| Valid request submission          | Request receives unique ticket number              | Verified      |
+| Request creation transaction      | Request, history and developer log commit together |  Verified     |
+| Forced failure during transaction | All related writes roll back                       | Verified      |
+| Valid status update               | Status, history and log update together            | Verified      |
+| Stale ExpectedVersion             | Operation rejected as concurrency conflict         | Verified      |
+| Invalid FK                        | MySQL rejects invalid reference                    | Verified      |
+| Duplicate ticket number           | UNIQUE constraint rejects duplicate                | Verified      |
+| Resolve without notes             | Service layer rejects request                      | Verified      |
 
 
 # Test Cases
@@ -1851,8 +1851,11 @@ baseline.
 - Record the exact deployment SHA and workflow run; the Azure workflow currently deploys from `main`, while the CI workflow tests `main` and `dev` (not `staging`).
 - Complete and verify authentication/RBAC, staff assignment, management reporting, backup/restore and performance checks before a production-ready decision.
 
+**M4 outstanding items / conditions:**
+All issues above from M3 have been adressed.
 
-**Team Approval for M3 submission**
+
+**Team Approval for M4 Final submission**
 
 By approving this baseline, the team agrees that significant changes to
 the accepted scope or requirements will be recorded and handled thorough
@@ -1860,9 +1863,9 @@ the project's change-control process.
 
 | **Team Member**  | **Decision** | **Signature** | **Date**          |
 |------------------|--------------|---------------|-------------------|
-| Cornelius Greeff | ☐ Approve    |               | 30 September 2026 |
-| Aiden Moses      | ☐ Approve    |               | 30 September 2026 |
-| Keegan Stroud    | ☐ Approve    |               | 30 September 2026 |
+| Cornelius Greeff | ☐ Approve    |Signed         | 18 October 2026 |
+| Aiden Moses      | ☐ Approve    | Signed        | 18 October 2026 |
+| Keegan Stroud    | ☐ Approve    | Signed        | 18 October 2026 |
 
 # References 
 
