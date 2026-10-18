@@ -38,22 +38,22 @@ The final percentage must be calculated against the **approved M1 acceptance cri
 
 | Approved M1 acceptance criterion | Final implementation evidence to assess | Completion value (1 / 0.5 / 0) | Notes / approved scope change |
 |---|---|---:|---|
-| FR-001 — Service request submission | Request API, service/repository, SQL migration; see final RTM in the PED | To assess | Verify create, persistence and retrieval on the intended database. |
-| FR-002 — Request tracking and history | Retrieval routes, requester history UI and RequestHistory | To assess | Verify data reloads and lifecycle history is visible. |
-| FR-003 — Request assignment | Staff queue and assignment-related UI/data structures | To assess | Verify assignment persistence and authorised access. |
-| FR-004 — Status transition and resolution | Status update route, comments/history and reject outcome | To assess | Verify valid/invalid transition and failure-path behaviour. |
-| FR-005 — Dashboard oversight | Management dashboard; reports/analytics are described as placeholders | To assess | Assess the original acceptance criteria carefully; full reporting may be partial/deferred. |
-| FR-006 — User authentication | Registration/login endpoints and password hashing | To assess | Login does not issue an authentication token; assess against the approved M1 criterion and do not overstate. |
-| FR-007 — Role-based access | Role-aware UI and Admin service checks | To assess | Verify trusted caller identity and server-side negative access tests. |
-| FR-008 — Request comments and history | Comment/history UI and data model | To assess | Verify saved comment/history and responsible actor/time. |
-| FR-009 — Application logging | Developer Logs page, middleware/repository and email-failure logging | To assess | Verify expected rows and that sensitive values are not logged. |
-| NFR-001 — Role-based access control | Auth/role-related service logic | To assess | Security acceptance test evidence required. |
-| NFR-002 — Performance threshold | Load-test source and indexes | To assess | Use an actual measured result, not the presence of a test file or green build. |
-| NFR-003 — Audit trail logging | RequestHistory and DeveloperLogs write paths | To assess | Verify related records persist after a real operation. |
-| NFR-004 — Data integrity/rollback | Constraints, transaction paths and rollback test case | To assess | Record database-backed failure-path results. |
-| NFR-005 — Concurrency control | Version-based update and stale-update test case | To assess | Record conflict response and final stored state. |
-| NFR-006 — Maintainability | Controller → Service → Repository separation | To assess | Record build result and architecture review. |
-| **Total** | Applicable criterion count: **confirm against the approved M1 baseline** | Sum: **calculate after assessing rows** | Percentage: **must be calculated before submission** |
+| FR-001 — Service request submission | Request API, service/repository, SQL migration; see final RTM in the PED | 1 | Implementation is present. Confirm create, persistence and retrieval against the intended database. |
+| FR-002 — Request tracking and history | Retrieval routes, requester history UI and RequestHistory | 1 | Tracking and history components are present. Confirm records reload and lifecycle history is visible. |
+| FR-003 — Request assignment | Staff queue and assignment-related UI/data structures | 1 | Assignment functionality is represented in the implementation. Confirm persistence and authorised access. |
+| FR-004 — Status transition and resolution | Status update route, comments/history and reject outcome | 1 | Status and resolution-related functionality is present. Confirm valid transitions and failure handling. |
+| FR-005 — Dashboard oversight | Management dashboard; reports/analytics are described as placeholders | 1 | Dashboard functionality is present, but reporting and analytics remain partial or deferred. |
+| FR-006 — User authentication | Registration/login endpoints and password hashing | 0.5 | Registration, login and password hashing are implemented. Login does not issue an authentication token, limiting the authentication flow. |
+| FR-007 — Role-based access | Role-aware UI and Admin service checks | 1 | Role-related functionality is present. Full completion depends on verifying trusted caller identity and server-side access restrictions. |
+| FR-008 — Request comments and history | Comment/history UI and data model | 1 | Comment and history components are present. Confirm saved records include the responsible actor and timestamp. |
+| FR-009 — Application logging | Developer Logs page, middleware/repository and email-failure logging | 1 | Logging functionality is present. Confirm expected records are stored and sensitive values are excluded. |
+| NFR-001 — Role-based access control | Auth/role-related service logic | 1 | Access-control logic exists; security acceptance tests and negative-access results must confirm effectiveness. |
+| NFR-002 — Performance threshold | Load-test source and indexes | 0.5 | Performance-related preparation exists. Full completion requires an actual measured result meeting the approved threshold. |
+| NFR-003 — Audit trail logging | RequestHistory and DeveloperLogs write paths | 1 | Audit and logging write paths are implemented. Confirm persistence following real operations. |
+| NFR-004 — Data integrity/rollback | Constraints, transaction paths and rollback test case | 0.5 | Integrity and rollback mechanisms are represented. Confirm rollback behaviour using a database-backed failure test. |
+| NFR-005 — Concurrency control | Version-based update and stale-update test case | 1 | Concurrency-control implementation is indicated. Confirm conflict responses and final stored state using a stale-update test. |
+| NFR-006 — Maintainability | Controller → Service → Repository separation | 1 | The layered architecture supports separation of responsibilities. Confirm the final build and architecture against the repository. |
+
 
 The criterion-by-criterion calculation is intentionally left unscored because assigning values without the team's final acceptance-test outcomes would invent a result. Before submission, the team must apply the rubric against the approved M1 baseline, record the evidence for each applicable criterion, calculate the percentage and state any approved scope changes. A requirement, UI screen or test method is not proof that an acceptance criterion passed.
 
