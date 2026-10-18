@@ -86,6 +86,9 @@
     register: (fullName, email, password) => http("POST", "/api/auth/register", { fullName, email, password }),
     confirm: (email, code) => http("POST", "/api/auth/confirm", { email, code }),
     resendConfirmation: email => http("POST", "/api/auth/resend-confirmation", { email }),
+    forgotPassword: email => http("POST", "/api/auth/forgot-password", { email }),
+    verifyResetCode: (email, code) => http("POST", "/api/auth/verify-reset-code", { email, code }),
+    resetPassword: (token, newPassword) => http("POST", "/api/auth/reset-password", { token, newPassword }),
     users: role => http("GET", "/api/users" + (role ? `?role=${encodeURIComponent(role)}` : "")),
     categories: () => http("GET", "/api/categories"),
     statuses: () => http("GET", "/api/statuses"),
@@ -299,7 +302,7 @@
       <a href="#/login" class="forgot" id="forgot">Forgot password?</a>
       <p class="switch-auth">Don't have an account? <a href="#/register">Register</a></p>
       <p class="switch-auth">Signed up but not confirmed? <a href="#/confirm">Enter your code</a></p>`);
-    $("#forgot").onclick = e => { e.preventDefault(); toast("Password reset isn't available yet — contact your administrator."); };
+    $("#forgot").onclick = e => { e.preventDefault(); viewForgot(); };
     $("#loginForm").onsubmit = async e => {
       e.preventDefault();
       const email = $("#email").value.trim(), pw = $("#pw").value;
@@ -311,6 +314,80 @@
   }
 
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  // Forgot password: email -> emailed code -> new password.
+  function viewForgot() {
+    const showErr = m => ($("#fpErr").innerHTML = m ? `<div class="error-msg">${esc(m)}</div>` : "");
+    authCard(`<h1>Reset your password</h1>
+      <p class="tag">Enter your account email and we'll send you a 6-digit code.</p>
+      <form id="fpForm" novalidate>
+        <div id="fpErr"></div>
+        <div class="input-icon">${I.mail}<input type="email" id="fpEmail" placeholder="Email" autocomplete="email" maxlength="255"></div>
+        <button class="btn btn-primary btn-block" type="submit" id="fpBtn">Send code</button>
+      </form>
+      <p class="switch-auth"><a href="#/login">Back to login</a></p>`);
+    $("#fpEmail").focus();
+    $("#fpForm").onsubmit = async e => {
+      e.preventDefault();
+      const email = $("#fpEmail").value.trim().toLowerCase();
+      if (!EMAIL_RE.test(email)) return showErr("Please enter a valid email address.");
+      $("#fpBtn").disabled = true; $("#fpBtn").textContent = "Sending code…";
+      try { await api.forgotPassword(email); viewForgotCode(email); }
+      catch (ex) { showErr(ex.message); $("#fpBtn").disabled = false; $("#fpBtn").textContent = "Send code"; }
+    };
+  }
+
+  function viewForgotCode(email) {
+    const showErr = m => ($("#fpErr").innerHTML = m ? `<div class="error-msg">${esc(m)}</div>` : "");
+    authCard(`<h1>Enter your code</h1>
+      <p class="tag">If <strong>${esc(email)}</strong> has an account, we've emailed a 6-digit code. It expires in 10 minutes.</p>
+      <form id="fpForm" novalidate>
+        <div id="fpErr"></div>
+        <div class="input-icon">${I.lock}<input type="text" id="fpCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code"></div>
+        <button class="btn btn-primary btn-block" type="submit" id="fpBtn">Verify code</button>
+      </form>
+      <button class="btn btn-block resend-btn" type="button" id="fpResend">Email me a new code</button>
+      <p class="switch-auth"><a href="#/login">Back to login</a></p>`);
+    $("#fpCode").focus();
+    $("#fpResend").onclick = async () => {
+      try { await api.forgotPassword(email); toast("A new code has been sent if the account exists."); }
+      catch (ex) { showErr(ex.message); }
+    };
+    $("#fpForm").onsubmit = async e => {
+      e.preventDefault();
+      const code = $("#fpCode").value.trim();
+      if (!/^\d{6}$/.test(code)) return showErr("Enter the 6-digit code from the email.");
+      $("#fpBtn").disabled = true;
+      try { const r = await api.verifyResetCode(email, code); viewForgotNew(r.token); }
+      catch (ex) { showErr(ex.message); $("#fpBtn").disabled = false; }
+    };
+  }
+
+  function viewForgotNew(token) {
+    const showErr = m => ($("#fpErr").innerHTML = m ? `<div class="error-msg">${esc(m)}</div>` : "");
+    authCard(`<h1>Choose a new password</h1>
+      <p class="tag">Your code was accepted.</p>
+      <form id="fpForm" novalidate>
+        <div id="fpErr"></div>
+        <div class="input-icon">${I.lock}<input type="password" id="fpPw" placeholder="New password (min. 10 characters)" autocomplete="new-password" maxlength="128"></div>
+        <div class="input-icon">${I.lock}<input type="password" id="fpPw2" placeholder="Confirm new password" autocomplete="new-password" maxlength="128"></div>
+        <button class="btn btn-primary btn-block" type="submit" id="fpBtn">Update password</button>
+      </form>`);
+    $("#fpPw").focus();
+    $("#fpForm").onsubmit = async e => {
+      e.preventDefault();
+      const pw = $("#fpPw").value, pw2 = $("#fpPw2").value;
+      if (pw.length < 10) return showErr("Password must be at least 10 characters.");
+      if (pw !== pw2) return showErr("Passwords don't match.");
+      $("#fpBtn").disabled = true;
+      try {
+        await api.resetPassword(token, pw);
+        authCard(`<h1>Password updated</h1>
+          <p class="tag">You can now log in with your new password.</p>
+          <a class="btn btn-primary btn-block" href="#/login">Go to login</a>`);
+      } catch (ex) { showErr(ex.message); $("#fpBtn").disabled = false; }
+    };
+  }
 
   // Sign-up: the server only creates the account if it could email the confirmation code.
   function viewRegister() {

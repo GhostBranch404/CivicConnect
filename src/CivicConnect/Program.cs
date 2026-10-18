@@ -62,6 +62,14 @@ builder.Services.AddOptions<EmailSmtpOptions>()
     .Configure<IConfiguration>((options, configuration) => EmailSmtpOptions.Bind(options, configuration));
 builder.Services.AddScoped<IEmailConfirmationSender, SmtpEmailConfirmationSender>();
 
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<PasswordResetService>(sp => new PasswordResetService(
+    connectionString,
+    sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>(),
+    sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<EmailSmtpOptions>>(),
+    sp.GetRequiredService<IDataProtectionProvider>(),
+    sp.GetRequiredService<IPasswordHasher<CivicUser>>()));
+
 var app = builder.Build();
 
 // Warn at startup (without printing any values) if confirmation emails can't be sent.
