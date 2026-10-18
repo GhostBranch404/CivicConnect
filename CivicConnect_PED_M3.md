@@ -106,6 +106,33 @@ The criterion-by-criterion calculation remains a submission action and is record
 - **CI/deployment:** `.github/workflows/ci.yml` targets `main` and `dev`; `.github/workflows/main_civicconnect1.yml` deploys on `main` or manual dispatch. This documentation branch does not automatically deploy.
 - **Security and recovery:** verify Aiven TLS, encryption-at-rest, backup/restore, and relevant failure-path/concurrency tests directly; do not describe these as verified based only on design documents.
 
+
+## Final RTM v4.0 — implementation and verification disposition
+
+This final disposition supplements the historic M1/M2/M3 matrices rather than deleting the approved baseline. It distinguishes code present in the repository from evidence that a requirement passed acceptance testing. The status column is conservative because a current test-run report and a dated end-to-end evidence pack were not present in the repository when this documentation branch was prepared.
+
+| Requirement | Current code/design evidence | Final disposition | Evidence still required / limitation |
+|---|---|---|---|
+| FR-001 — Service request submission | Request API, service/repository, SQL migration and UI journey | Implemented in source; acceptance evidence pending | Attach dated create/save/retrieve result from the intended Aiven environment and current deployed SHA. |
+| FR-002 — Request tracking and history | Request retrieval routes, requester history UI and RequestHistory model/table | Implemented in source; acceptance evidence pending | Demonstrate a saved request reloaded from the database and its history visible after a change. |
+| FR-003 — Request assignment | Staff queue / assignment UI and assignment-related data structures | Partial / verify end to end | Prove assigned staff and timestamp persist; verify protected operations cannot be performed by an unauthorised caller. |
+| FR-004 — Status transition and resolution | Status update endpoint, service/repository flow, comments/history and reject outcome | Implemented in source; test result pending | Capture successful and invalid-transition results, including rollback when a related write fails. |
+| FR-005 — Dashboard oversight | Management dashboard displays request/status/category information in the UI design record | Partial | The separate Reports / Analytics pages are documented as placeholders; do not claim the full original management-reporting requirement is met. |
+| FR-006 — User authentication | Registration and login endpoints; passwords are hashed; account confirmation is required | Partial | Login returns the user profile but does not issue an authentication token. A reliable authenticated session and its security properties remain open. |
+| FR-006.1 — Email registration confirmation | Resend sender configuration, confirmation endpoints and unit/API integration test methods | Implemented in source; end-to-end evidence pending | Record actual automated test results plus a redacted real email receipt and confirmation result. Test delivery failure and invalid/expired-code paths. |
+| FR-007 — Role-based access | Role-aware UI, Admin service checks and two-admin approval flow exist in source/design | Partial; high-priority security risk | Establish trusted caller identity, then test unauthenticated, wrong-role and spoofed-actor requests against server endpoints. The UI hiding a menu is not authorization evidence. |
+| FR-008 — Request comments and history | Comment/history UI and repository models are present | Implemented in source; verification pending | Show saved comment/history records and actor/time for a real request, backed by a dated test result. |
+| FR-009 — Application logging | Developer Logs page, logging middleware/repository and email-send-failure logging | Implemented in source; verification pending | Demonstrate the expected log row for a controlled event and ensure secrets/passwords/codes are not logged. |
+| NFR-001 — Role-based access control | Role-related service checks and request-specific access logic exist | Partial / not production-verified | Complete reliable authentication/session handling, confirm every protected API path, and run negative authorization tests. |
+| NFR-002 — Performance | Load-test source and initial schema indexes exist | Not verified against acceptance threshold | Provide a measured run (test settings, concurrency, response times and result). A CI build is not a performance test. |
+| NFR-003 — Audit/history logging | RequestHistory and DeveloperLogs persistence paths exist | Implemented in source; database test evidence pending | Verify expected saved rows and actor/timestamp after create and status-update operations. |
+| NFR-004 — Data integrity and rollback | Constraints, repository transactions and rollback test cases are represented in source | Test result pending | Run the database-backed rollback/failure case and show request, history and log writes do not leave partial state. |
+| NFR-005 — Concurrency control | Version-based update path and stale-update test case exist | Test result pending | Run two updates against the same expected version and retain the conflict result plus final stored state. |
+| NFR-006 — Maintainability | Controller → Service → Repository structure is visible in the project | Structure evidenced; verification result pending | Attach build result and review that controllers do not directly execute SQL. |
+
+A requirement listed as “implemented in source” is not automatically complete. Update these dispositions only when the relevant acceptance check has been performed and the evidence reference is available. This table is the final status interpretation for release review; older “Implemented & Verified” labels in historical RTM tables must not override it where a current test result is missing.
+
+
 See [Final Release Evidence Register](src/docs/final-release-evidence.md) for the submission SHA/tag, evidence index, go-live recommendation and final checklist.
 
 # Milestone 3 Review of the M1 and M2 Baselines
