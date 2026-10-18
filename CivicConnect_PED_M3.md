@@ -34,6 +34,7 @@ Cornelius Greeff 601357 \| Aiden Moses 603067 \| Keegan Stroud 601609
 - [Architectural Design and Decision Records (ADRs)](#architectural-design-and-decision-records-adrs)
 - [Design Patterns and Architectural Approach Used in CivicConnect](#design-patterns-and-architectural-approach-used-in-civicconnect)
 - [Authentication and RBAC](#authentication-and-rbac)
+- [Email Registration and Confirmation](#email-registration-and-confirmation)
 - [Detailed Security & Architectural Rationale for Access Permissions](#detailed-security-architectural-rationale-for-access-permissions)
 - [Data Engineering Decisions](#data-engineering-decisions)
 - [Data and Persistence Engineering Baseline](#data-and-persistence-engineering-baseline)
@@ -73,6 +74,7 @@ M1 and M2 content is retained as the historical and requirements baseline. M3 re
 | Architecture | Controller, service, repository and models under `src/CivicConnect/` | Layered shape is visible in code. Confirm route behaviour, error handling, transaction/concurrency behaviour and requirement mapping through tests. |
 | Database provider | Aiven is documented as the current provider choice | Do not claim deployed connectivity until the app connects successfully and a database-backed operation is verified. Keep credentials out of Git. |
 | Azure release | `.github/workflows/main_civicconnect1.yml` deploys from `main`; `.github/workflows/ci.yml` tests `main` and `dev` | Reported `/` and `/swagger` returned 404 on 15 October 2026. Capture deployed SHA/workflow run, homepage response, real API response and database result after fixing. |
+| Email registration | Resend SMTP settings documented in `README.md`; confirmation flow in authentication controller | Implementation documented; capture deployed inbox receipt, valid/expired code tests and send-failure result before marking end-to-end verification complete. |
 | Security and roles | Requirements/RBAC design and current controller routes | Authentication and role enforcement are not yet evidenced as complete. Do not claim protected production access until authorization is implemented and tested. |
 
 **Small document-change log**
@@ -669,6 +671,17 @@ RequestController.GetById()</td>
 <td>Services/RequestService.cs</td>
 <td>Implemented</td>
 </tr>
+<tr class="odd">
+<td>FR-006</td>
+<td>Email registration confirmation</td>
+<td>ASR-04</td>
+<td>Authentication / Registration</td>
+<td>Stores pending account and confirmation details; confirmation state is updated after a valid code</td>
+<td>Registration and confirmation service; Resend SMTP email delivery</td>
+<td>ASP.NET Core configuration and Resend</td>
+<td><a href="src/CivicConnect/Controllers/AuthController.cs">AuthController</a>; <a href="README.md">email configuration and test guidance</a></td>
+<td>Implemented; end-to-end delivery evidence to be recorded</td>
+</tr>
 </tbody>
 </table>
 
@@ -1013,6 +1026,18 @@ General Assumptions and Dependencies
 | AD-008 | The current documented hosted database choice is Aiven for MySQL; production suitability is not yet confirmed. | M3 provider choice for development/integration; successful deployed connectivity remains unverified. | Confirm TLS/network access, plan limits, cost, backup/restore and a successful database-backed operation before any production claim. |
 | AD-009 | Production backup, retention and recovery requirements are not yet finalised.                                | Forward engineering consideration.                                                    | The final deployment baseline must define backup frequency, retention, restore procedures, recovery ownership and acceptable recovery objectives.                         |
 | AD-010 | DeveloperLogs currently represents technical/application trace logging requested for engineering visibility. | Current interpretation used in the persistence design.                                | If lecturer clarification changes the intended meaning, the logging model and related documentation must be updated through controlled change.                            |
+
+# Email Registration and Confirmation
+
+CivicConnect uses email confirmation during registration so that a new requester can confirm access to the email address they supplied. Resend is used to send the confirmation code through the application's email service. This keeps the confirmation step inside the existing registration process instead of requiring staff to confirm every new account manually.
+
+When someone signs up, the application prepares a confirmation code and sends it to the supplied email address. The user enters that code in CivicConnect to complete confirmation. Codes expire after a limited period and failed attempts are limited. The application does not create the pending account if the email cannot be sent successfully, so the user can retry after the email service has been configured or restored.
+
+The email service is configured outside the source code using application settings. Resend provides the sending service, while the sender identity is configured for the project. Credentials and other private configuration values must remain in local secret storage or the hosting environment and must not be committed to GitHub or included in screenshots or submitted documentation.
+
+This feature depends on the email settings being present and valid, and on the receiving mail service accepting the message. A successful application build alone does not prove that an email reached an inbox. Verification should therefore record a real registration attempt, receipt of the message, successful code confirmation, expired/invalid code behaviour, and the failure path when sending is unavailable. Any evidence should hide email addresses, confirmation codes, API keys and other personal or secret values.
+
+**Current implementation note:** the repository README documents Resend SMTP configuration and the expected registration failure behaviour. The final submission should only mark end-to-end email delivery as verified when the team has captured a successful test result for the deployed environment.
 
 # Authentication and RBAC
 
