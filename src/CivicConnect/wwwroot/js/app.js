@@ -180,7 +180,12 @@
     const page = back ? back.split("/")[1] : "";
     location.hash = page && ACCESS[page] && ACCESS[page].includes(appRole(user.role)) ? back : HOME[appRole(user.role)];
   }
-  function signOut() { session.user = null; store.set("user", null); store.set("returnTo", null); location.hash = "#/dashboard"; }
+  // Sign out: clear the saved user, then reload the page on the dashboard so everything renders as a guest.
+  function signOut() {
+    session.user = null; store.set("user", null); store.set("returnTo", null);
+    location.replace(location.pathname + location.search + "#/dashboard");
+    location.reload();
+  }
 
   // Ask a guest to sign in. "Sign in" remembers where they were heading and opens the sign-in screen.
   function promptSignIn(target, why) {
