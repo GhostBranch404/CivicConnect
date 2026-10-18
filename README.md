@@ -95,7 +95,11 @@ mysql -h localhost -P 3306 -u YOUR_USER -p CivicConnect < ../../src/CivicConnect
 mysql -h localhost -P 3306 -u YOUR_USER -p CivicConnect < ../../src/CivicConnect/database/migrations/005_user_registration_confirmation.sql
 ```
 
-Sign-up confirmation codes are sent by email over SMTP (the team uses Resend). Configure them with User Secrets locally or app settings in Azure. Each setting can be written as `Email__Host` (standard ASP.NET style), `Email_Host` or `EmailHost`:
+### Email registration confirmation
+
+CivicConnect uses Resend to send a confirmation code when a requester signs up. The user enters the code to confirm their email address before using the account. The sending service is configured through application settings rather than hard-coded into the application. The sender identity must be configured for the project, and the Resend credential must be kept private.
+
+For local development, use .NET User Secrets; for Azure, use the App Service application settings. Do not commit real credentials or include them in evidence. The settings used by the application are:
 
 | Setting | Value |
 |---|---|
