@@ -52,7 +52,7 @@ Cornelius Greeff 601357 \| Aiden Moses 603067 \| Keegan Stroud 601609
 - [Initial Persistence Verification Table](#initial-persistence-verification-table)
 - [Test Cases](#test-cases)
 - [Agile Development Methodology](#agile-development-methodology)
-- [AI Usage Register](#ai-usage-register)
+- [Historical M3 AI Usage Register](#historical-m3-ai-usage-register)
 - [Document Control/Version History](#document-controlversion-history)
 - [References](#references)
 
@@ -70,6 +70,26 @@ This section updates the document for the final submission while preserving the 
 - **Current reported status:** the team reports that the website is accessible and database connectivity/persistence checks succeeded. This documentation change does not independently rerun those checks.
 - **Historical defect:** the homepage and `/swagger` returned 404 in the 15 October 2026 check; the team later reported the issue resolved. Do not present that old 404 as the current status. Record the deployed commit SHA and successful workflow run.
 - **Release decision:** staging / conditional no-go for production until current deployment, test, authentication/authorization, recovery and security evidence is complete.
+
+
+## Final risk and defect disposition
+
+The detailed historical register above is retained. The following is the current final-submission interpretation of the main risks so that a previously observed defect is not confused with a remaining release blocker.
+
+| ID | Final status | Description | Closure evidence |
+|---|---|---|---|
+| M3-R01 / DEF-01 | Historical defect; reported resolved, retest evidence required | Azure / and /swagger returned 404 on 15 October 2026. The team later reported the website was fixed and accessible. | Current deployed SHA, successful Azure workflow run, current homepage/health/API checks. |
+| M3-R02 | Open evidence gap | Team-reported Aiven connectivity and persistence checks have not yet been linked to a dated, reproducible evidence record in the repo. | Test date, Staging/Production target, deployed SHA, operation and saved result; no secrets. |
+| M3-R03 | Open workflow risk | CI runs on main and dev; Azure deploys from main or manual dispatch. This branch will not automatically run/deploy those workflows. | A recorded successful test run and, if a release is required, confirmed deploy run for the assessed SHA. |
+| M3-R04 | Open evidence gap | Test methods exist but current pass/fail/skip output for the complete suite is not attached here. | Attach actual test output and environment, including any skipped database-backed cases. |
+| M3-R05 / DEF-02 | Open high-priority security limitation | Login does not issue an authentication token, so a secure authenticated session and dependable role enforcement are not evidenced. | Implement/confirm trusted caller identity and pass unauthenticated, wrong-role and spoofed-actor tests. Until closed, no production-go decision. |
+| M3-R06 | Open release risk | TLS, encryption-at-rest, backup/restore, retention, plan limits and total provider costs have not been verified in this documentation pass. | Provider-side configuration evidence and a documented restore rehearsal. |
+| M3-R07 / TD-01 | Local-development risk | Docker Compose contains development example credentials. | Ensure credentials are disposable/local-only and are never reused in hosted environments; consider environment-based configuration before shared use. |
+| TD-02 | Deferred feature / scope limitation | The UI design record says the separate Reports / Analytics pages are placeholders. | Implement and verify the required reports or record the approved scope deferral and stakeholder impact. |
+| TD-03 | Open engineering evidence debt | No current test-result pack or verified M1 scope-completion percentage was attached in this branch. | Run required tests, complete the acceptance-criteria worksheet, calculate the percentage and link each result. |
+
+Close an item only when the listed evidence has been saved. Do not change a status to “Resolved” merely because a fix was attempted or the code compiles.
+
 
 ## Final scope-to-delivery reflection
 
@@ -92,7 +112,7 @@ See [Final Release Evidence Register](src/docs/final-release-evidence.md) for th
 
 The M1 business need, stakeholder groups, scope and core requirements remain the starting point. M2 added the engineering baseline: ASP.NET Core, a layered monolith, MySQL, Dapper/MySqlConnector, SQL migrations, persistence tests, request history and developer logging. M3 retains those decisions while moving from design into implementation, deployment and evidence collection.
 
-The main M3 changes are the documented consideration of Aiven for hosted MySQL and Azure App Service for application hosting. These are separate decisions: Azure hosts the ASP.NET Core application; Aiven is the current documented candidate for managed MySQL. The database engine remains MySQL. Provider choice does not change the relational schema by itself, but the actual deployed connection and plan suitability must be verified.
+The original M3 hosting decision was to use Azure App Service for the ASP.NET Core application and Aiven for managed MySQL. The current final environment clarification is that Aiven hosts both the separate Staging and Production databases; Azure hosts the application. Provider choice does not change the relational schema by itself. Dated evidence should identify which Aiven environment was actually used for each successful persistence check.
 
 **Historical M3 position (15 October 2026):** the Azure homepage and `/swagger` returned 404 while published .NET files were present. The team later reported that the site was fixed and accessible, and that database connectivity/persistence checks succeeded. Those later checks are team-reported; the exact deployed commit and a dated evidence record should be attached before the final release claim. The current final recommendation is staging / conditional no-go for production until the release checks in the final section are closed.
 
@@ -713,7 +733,7 @@ RequestController.GetById()</td>
 <td>Implemented</td>
 </tr>
 <tr class="odd">
-<td>FR-006</td>
+<td>FR-006.1</td>
 <td>Email registration confirmation</td>
 <td>ASR-04</td>
 <td>Authentication / Registration</td>
@@ -863,11 +883,11 @@ The risks below add current deployment and evidence concerns to the existing reg
 
 | ID | M3 risk / evidence | Probability | Impact | Priority | Mitigation and closure evidence |
 |---|---|---|---|---|---|
-| M3-R01 | Azure deployment returns 404 for `/` and `/swagger` in the latest reported check. | High until retested | High | High | Record deployed SHA/run; inspect startup and route logs; verify homepage, `/health` and a real API route after redeploy. |
-| M3-R02 | Deployed app may not connect to the intended MySQL provider/database. | Medium | High | High | Confirm the connection setting is supplied as a secret; verify TLS/network access and run a create/read/status-update operation with related history/log rows. Never record secret values. |
+| M3-R01 | Historical Azure 404 on 15 October 2026; the team later reported it resolved, but current deployed-commit evidence is not linked here. | Reduced after reported fix; keep open until retested | High | Medium/High | Capture the current deployed SHA and workflow run, then verify homepage, /health and a real API route. Close only when evidence is attached. |
+| M3-R02 | The team reports successful database connectivity/persistence, but the dated evidence record is not linked here. | Medium until evidence is attached | High | High | Record the intended Aiven environment, test date, deployed SHA, create/read/status-update result and related history/log rows. Never record secret values. |
 | M3-R03 | CI does not trigger on pushes to `staging`; Azure deploy workflow targets `main`. | High for staging-only changes | High | High | Run checks deliberately or update workflow triggers through a reviewed change; record the exact tested/deployed commit and workflow run. |
 | M3-R04 | Test methods exist, but successful results and environment evidence are not yet captured for the full suite. | Medium | High | High | Run unit, API integration and database-backed tests; save pass/fail/skip counts, date, environment and workflow/run link. |
-| M3-R05 | Authentication/RBAC and staff/management features are not yet verified as complete. | Medium | High | High | Implement and test role restrictions and negative access cases before exposing write operations as production-ready. |
+| M3-R05 | Login returns a user profile but does not issue an authentication token; role-aware UI and request-supplied actor IDs do not alone prove a trustworthy authenticated identity for protected operations. Reports/Analytics pages are placeholders. | High | High | High | Verify identity/session design and enforce server-side authorization for each protected operation. Test unauthenticated, wrong-role and spoofed-actor requests. Mark analytics as deferred until built. |
 | M3-R06 | Backup, restore, availability, plan limits and total hosted-service cost remain unverified. | Medium | High | High | Check current Aiven/Azure plans and cost; document backup/restore ownership and perform a restore rehearsal before production approval. |
 | M3-R07 | Local Docker Compose includes fixed development credentials. | Medium | Medium | Medium | Restrict to disposable local use; replace hard-coded credentials with environment-supplied values before shared/staging use and never reuse them in hosted environments. |
 
