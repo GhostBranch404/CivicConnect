@@ -67,3 +67,25 @@ The criterion-by-criterion calculation is intentionally not invented in this bra
 | AI use | PED AI Usage Register | Retain actual tools/uses and human review. Do not claim AI-generated code passed tests unless results are recorded. |
 | Risks, defects and technical debt | PED risk register, ADRs and release limitations | Distinguish resolved historical issues from open release risks; link evidence for closed high-priority items. |
 
+
+
+## Defect and technical-debt register
+
+| ID | Type | Current state | Impact | Next action |
+|---|---|---|---|---|
+| DEF-01 | Deployment defect | Historical Azure 404 on 15 October 2026; later reported resolved by the team | A broken homepage/API would block demonstration and use; the current release commit still needs traceable proof | Save the current deployed SHA/workflow run and retest homepage, health endpoint and one API route. |
+| DEF-02 | Security limitation | Login currently returns a user profile without issuing an authentication token | The application cannot claim a complete authenticated session or production-grade role enforcement on that basis | Establish trusted caller identity and test unauthenticated, wrong-role and spoofed-actor calls. |
+| TD-01 | Deferred functionality | Reports / Analytics pages are documented as placeholders | Original management reporting scope is only partially met | Implement and verify the required reports or record an approved scope deferral and stakeholder impact. |
+| TD-02 | CI/deployment workflow debt | CI triggers on main and dev; Azure deployment triggers on main or manual dispatch | Changes on this documentation branch are not automatically tested/deployed by those workflows | Run tests deliberately for the assessed SHA and record the run; workflow trigger changes should be reviewed separately. |
+| TD-03 | Evidence debt | No final test-result pack or M1 scope-completion calculation is attached yet | Completion and release claims are difficult to independently audit | Complete the scope worksheet, run the suite and attach dated evidence before final hand-in. |
+| TD-04 | Development configuration risk | Docker Compose includes development-only example credentials | Risk if these are reused in shared or hosted environments | Keep them disposable/local, never reuse them for Azure/Aiven, and move shared use to environment-supplied settings. |
+
+## Final decision log snapshot
+
+| Decision | Current decision | Trade-off / open condition |
+|---|---|---|
+| Application hosting | Azure App Service civicconnect1 | Simple managed hosting and GitHub Actions integration; confirm exact deployed commit. |
+| Database hosting | Aiven hosts both Staging and Production MySQL databases | Environments stay separate; TLS, encryption, backup/restore, plan limits and costs still require provider-side verification. |
+| Persistence | MySQL + Dapper + MySqlConnector with version-controlled SQL migrations | Explicit SQL and transaction control; the team must retain rollback/concurrency test evidence. |
+| Architecture | Controller → Service → Repository layered monolith | Suitable for this team and scope; boundaries need review to avoid coupling. |
+| Authentication/release posture | Do not approve production until identity/session and server-side authorization are evidenced | Login does not currently issue an authentication token. This remains a release-blocking limitation unless addressed or explicitly accepted by the assessment authority. |
