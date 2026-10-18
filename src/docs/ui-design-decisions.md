@@ -144,7 +144,7 @@ Here's where each screen stands right now:
 |---|---|---|
 | Dashboard (everyone) | Complete | Greeting, banner, totals by status, recent requests and report shortcuts. Visitors see the layout without any request data. |
 | Sign-in prompt | Complete | Shown when a visitor tries something that needs an account; takes them back afterwards. |
-| Login / Register / Confirm email | Partial | Passwords are hashed and new accounts confirm their email with a 6-digit code. There's no secure session token yet, and "Forgot password" only shows a message. |
+| Login / Register / Confirm email / Password reset | Partial | Passwords are hashed, registration uses a 6-digit email confirmation code, and the UI includes a code-based password-reset flow. Login currently returns a profile but does not issue an authentication token, so a secure authenticated session and complete server-side authorization must not be claimed. |
 | Submit request | Complete | Categories come from the database; every field is validated. The dashboard shortcuts pre-fill the title. |
 | My Requests | Complete | Current Requests and Request History (Completed / Rejected). |
 | Request details, history and comments | Complete | A timeline from RequestHistory, saved comments, and an outcome banner showing the reason. |
@@ -190,3 +190,17 @@ These scripts in `src/CivicConnect/database/migrations` add what the screens abo
 3. `004_admin_approvals.sql` – creates the `AdminApprovals` table for two-admin approval.
 4. `005_user_registration_confirmation.sql` – adds the email confirmation columns. Only new databases need this; the Azure database already has them.
 
+
+
+## Final submission verification notes
+
+The password-reset flow is present in the current source: the UI calls `POST /api/auth/forgot-password`, `POST /api/auth/verify-reset-code` and `POST /api/auth/reset-password`. The service sends a 6-digit code and exchanges a valid code for a short-lived reset token. This is evidence of an implemented flow, not proof of successful live email delivery or complete security testing; retain test output and a redacted end-to-end result.
+
+The earlier Azure 404 is a historical defect, not the current status. The team reports that the site became accessible after the startup/project-file issue was fixed. The exact currently deployed commit and successful workflow run should still be recorded in the [Final Release Evidence Register](final-release-evidence.md).
+
+### Known limitations to state honestly
+
+- Login does not currently issue an authentication token. UI role-aware navigation alone is not a security boundary; server-side authorization needs explicit verification before production use.
+- Reports / Analytics are described above as placeholder pages, not completed reporting.
+- The current deployment workflow targets `main`; documentation changes on `staging` do not automatically deploy.
+- Treat the documented accessibility contrast ratios as verified only if measurements were actually performed; otherwise label them as intended/estimated and verify with a contrast tool.
