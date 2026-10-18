@@ -2,7 +2,7 @@
 
 **Document type:** Database / Persistence Design  
 **Project:** CivicConnect – Community Service Request Management Platform  
-**Milestone:** M2 design baseline, reviewed for M3
+**Milestone:** M2 design baseline, reviewed for M3 and final submission
 **Review status:** Design documented; live migration/provider verification still outstanding  
 **Persistence baseline:** MySQL + Dapper + MySqlConnector  
 **Owner:** Jaco – Database/Persistence Lead  
@@ -11,7 +11,7 @@
 
 ## 1. Purpose
 
-This document records the M2 database design and its M3 implementation review. The schema and persistence approach remain MySQL + Dapper + MySqlConnector. Aiven is the current documented hosted-MySQL choice, while Azure App Service is the application-hosting target; neither choice is considered verified until the deployed app successfully connects and completes a database-backed operation.
+This document records the M2 database design and its M3 implementation review. The schema and persistence approach remain MySQL + Dapper + MySqlConnector. Aiven hosts both the separate Staging and Production MySQL databases. Azure App Service (`civicconnect1`) hosts the application only. The team reports successful deployed connectivity and persistence checks; this document does not independently rerun them, so evidence should include date, environment, tested operation and deployed commit.
 
 The database must support the core request lifecycle:
 
@@ -107,10 +107,10 @@ All tables also have NOT NULL requirements on the columns declared `NOT NULL` in
 ## 5.2 Provider and configuration
 
 - **Database engine:** MySQL.
-- **Current documented hosted provider:** Aiven for MySQL, pending verification of the actual connection used by the running app.
+- **Hosted provider:** Aiven for MySQL, with separate Staging and Production database environments.
 - **Application host:** Azure App Service (`civicconnect1`) is the current deployment target; it is separate from the database provider.
 - **Configuration:** the application reads `ConnectionStrings:DefaultConnection`. Supply it through local .NET User Secrets or environment/deployment settings. Do not commit connection strings or include them in logs.
-- **Verification still required:** record the migration result, TLS/network settings, successful application connection and a create/read/status-update operation with related history and developer-log rows. Record evidence metadata and links, never secret values.
+- **Verification record:** the team reports that deployed connectivity and persistence checks succeeded. Preserve dated evidence for the intended environment, migration state, create/read/status-update operation and related history/log rows. TLS/network settings, backup/restore and encryption settings still need direct provider-side verification. Never record secret values.
 
 
 ## 6. Data Dictionary
@@ -522,3 +522,12 @@ src/docs/
 ```
 
 This evidence must remain consistent with the implementation as the project evolves.
+
+
+## Final submission clarification — hosted environments
+
+Aiven hosts **both** CivicConnect MySQL environments: Staging and Production. Azure App Service (`civicconnect1`) hosts the web application and connects to the intended Aiven environment through application configuration. Keep the environments separate and verify the configured target before running migrations or test operations.
+
+The team reports successful database connectivity and persistence checks. This is team-reported evidence rather than an independently reproduced test result. Before production approval, retain a dated record of the tested environment, deployed commit, operation, result and relevant history/log rows. Provider-side TLS, encryption-at-rest, backup retention and restore procedures remain unverified until checked directly in Aiven.
+
+The schema and persistence strategy are documented and version controlled. Transaction rollback and optimistic concurrency still require captured test results; the existence of repository methods or test cases is not proof that each scenario passed. See the [Final Release Evidence Register](final-release-evidence.md).
