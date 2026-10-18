@@ -132,7 +132,7 @@ h2 .count { display: inline-block; min-width: 22px; padding: 0 7px; margin-left:
 .btn:disabled { opacity: .55; cursor: not-allowed; }
 .btn-block { width: 100%; padding: 11px; }
 
-input[type=text], input[type=password], input[type=search], select, textarea {
+input[type=text], input[type=email], input[type=password], input[type=search], select, textarea {
   width: 100%; padding: 10px 12px; border: 1px solid #cfd7df; border-radius: 8px; background: #fff; outline: none; }
 input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(15,122,108,.15); }
 textarea { min-height: 130px; resize: vertical; }
@@ -211,8 +211,8 @@ textarea { min-height: 130px; resize: vertical; }
 .hero-text { padding: 30px 36px; max-width: 420px; color: #fff; }
 .hero-text h2 { font-size: 27px; line-height: 1.2; font-weight: 700; margin: 0 0 12px; letter-spacing: -.01em; }
 .hero-text p { margin: 0 0 20px; color: #dce8ee; font-size: 14.5px; }
-.hero-text .btn-primary { background: #1f8a7e; border-color: #1f8a7e; }
-.hero-text .btn-primary:hover { background: #1a776d; }
+.hero-text .btn-primary { background: var(--brand); border-color: var(--brand); }
+.hero-text .btn-primary:hover { background: #0c695d; }
 
 .stat2 { position: relative; padding: 18px 20px 20px; }
 .stat2-icon { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; margin-bottom: 12px; }

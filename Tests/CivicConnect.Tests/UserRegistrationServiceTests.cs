@@ -127,6 +127,38 @@ public class UserRegistrationServiceTests
         Assert.Null(emailSender.Code);
     }
 
+    // Boundary value analysis on the password length rule (10 to 128 characters).
+    [Theory]
+    [InlineData(9, false)]
+    [InlineData(10, true)]
+    [InlineData(128, true)]
+    [InlineData(129, false)]
+    public async Task Register_PasswordLengthBoundaries(int length, bool accepted)
+    {
+        var repository = new FakeConfirmationRepository();
+        var emailSender = new CapturingEmailSender();
+        var service = CreateService(repository, emailSender);
+        var request = new UserRegistrationRequest
+        {
+            FullName = "Boundary User",
+            Email = "boundary@example.com",
+            Password = new string('p', length)
+        };
+
+        if (accepted)
+        {
+            await service.RegisterAsync(request, CancellationToken.None);
+            Assert.Single(repository.Users);
+            Assert.NotNull(emailSender.Code);
+        }
+        else
+        {
+            await Assert.ThrowsAsync<ArgumentException>(() => service.RegisterAsync(request, CancellationToken.None));
+            Assert.Empty(repository.Users);
+            Assert.Null(emailSender.Code);
+        }
+    }
+
     [Fact]
     public async Task ConfirmWithIncorrectCode_DoesNotConfirmUser()
     {
