@@ -17,7 +17,6 @@ Cornelius Greeff 601357 \| Aiden Moses 603067 \| Keegan Stroud 601609
 - [Final RTM v4.0: Implementation and Verification Status](#final-rtm-v40-implementation-and-verification-status)
 - [Final Evidence and Release Conditions](#final-evidence-and-release-conditions)
 - [Final Release Evidence Register](src/docs/final-release-evidence.md)
-- [Final Presentation and Individual Defence Guide](src/docs/final-presentation-and-defence.md)
 - [Milestone 3 Review of the M1 and M2 Baselines](#milestone-3-review-of-the-m1-and-m2-baselines)
 - [M3 Evidence Status and Document Changes](#m3-evidence-status-and-document-changes)
 - [Project Overview](#project-overview)
